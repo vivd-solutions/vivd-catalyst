@@ -4,19 +4,31 @@ clientInstance:
   displayName: Demo Client Instance
   environment: development
 auth:
-  development:
+  standalone:
     enabled: true
-    user:
-      id: demo-user
-      externalUserId: demo-user
-      displayLabel: Development User
-      email: dev@example.test
-      roles:
-        - user
-        - admin
-      permissionRefs:
-        - demo-tools
-      authSource: development
+    baseUrl: http://127.0.0.1:4100/api/auth
+    trustedOrigins:
+      - http://127.0.0.1:5173
+      - http://127.0.0.1:5273
+    seedUsers:
+      - displayLabel: Demo Superadmin
+        email: superadmin@example.test
+        passwordEnvName: DEMO_SUPERADMIN_PASSWORD
+        developmentPassword: demo-superadmin-password
+        roles:
+          - user
+          - admin
+          - superadmin
+        permissionRefs:
+          - demo-tools
+      - displayLabel: Demo User
+        email: user@example.test
+        passwordEnvName: DEMO_USER_PASSWORD
+        developmentPassword: demo-user-password
+        roles:
+          - user
+        permissionRefs:
+          - demo-tools
   sessionToken:
     issuer: demo-client-instance
     ttlSeconds: 900
@@ -30,6 +42,18 @@ modelProviders:
     model: gpt-4.1
     baseUrl: https://api.openai.com/v1
     apiKeyEnvName: OPENAI_API_KEY
+usage:
+  limits:
+    modelCallsPerDay: 100
+    tokensPerDay: 250000
+    tokensPerMonth: 2000000
+  pricing:
+    currency: USD
+    models:
+      - providerId: openai
+        model: gpt-4.1
+        inputPricePerMillionTokens: 2
+        outputPricePerMillionTokens: 8
 defaultAgentName: application_assistant
 agentFiles:
   - ../agents/application-assistant.agent.yaml
@@ -37,6 +61,15 @@ tools:
   - name: document.application_summary
     enabled: true
 ui:
+  clientName: Demo Customer
   title: Agent Chat
   welcomeMessage: Start a conversation about an application or document review workflow.
   accentColor: "#0f766e"
+  theme:
+    accentColor: "#0f766e"
+    accentStrongColor: "#0b5f59"
+    backgroundColor: "#f4f1e8"
+    surfaceColor: "#fffdfa"
+    textColor: "#17201d"
+    mutedTextColor: "#68746f"
+    borderColor: "#d8d3c7"

@@ -19,11 +19,11 @@
     "@agent-chat-platform/chat-core": "workspace:*",
     "@agent-chat-platform/config-schema": "workspace:*",
     "@agent-chat-platform/model-provider": "workspace:*",
-    "@agent-chat-platform/tool-execution": "workspace:*"
+    "@agent-chat-platform/tool-execution": "workspace:*",
+    "@agent-chat-platform/usage-governance": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   }
 }
-

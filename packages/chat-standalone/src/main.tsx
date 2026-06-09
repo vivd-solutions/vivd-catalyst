@@ -1,13 +1,42 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
+import { Outlet, RouterProvider, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
 import { ChatShell } from "@agent-chat-platform/chat-ui";
 import "@agent-chat-platform/chat-ui/styles.css";
 
 const apiBaseUrl = import.meta.env.VITE_CHAT_API_URL ?? "http://127.0.0.1:4100";
+const rootRoute = createRootRoute({
+  component: StandaloneRoot
+});
+const indexRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/",
+  component: StandaloneChatRoute
+});
+const chatRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/chat",
+  component: StandaloneChatRoute
+});
+const routeTree = rootRoute.addChildren([indexRoute, chatRoute]);
+const router = createRouter({ routeTree });
+
+declare module "@tanstack/react-router" {
+  interface Register {
+    router: typeof router;
+  }
+}
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ChatShell apiBaseUrl={apiBaseUrl} />
+    <RouterProvider router={router} />
   </StrictMode>
 );
 
+function StandaloneRoot() {
+  return <Outlet />;
+}
+
+function StandaloneChatRoute() {
+  return <ChatShell apiBaseUrl={apiBaseUrl} />;
+}

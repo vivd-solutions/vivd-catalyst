@@ -27,6 +27,7 @@
     "@agent-chat-platform/postgres-store": "workspace:*",
     "@agent-chat-platform/tool-execution": "workspace:*",
     "@agent-chat-platform/tool-sdk": "workspace:*",
+    "@agent-chat-platform/usage-governance": "workspace:*",
     "fastify": "^5.8.5"
   },
   "devDependencies": {
@@ -34,4 +35,3 @@
     "typescript": "^6.0.3"
   }
 }
-

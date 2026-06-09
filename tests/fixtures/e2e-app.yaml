@@ -4,18 +4,30 @@ clientInstance:
   displayName: Demo E2E Client Instance
   environment: development
 auth:
-  development:
+  standalone:
     enabled: true
-    user:
-      id: e2e-user
-      externalUserId: e2e-user
-      displayLabel: E2E User
-      roles:
-        - user
-        - admin
-      permissionRefs:
-        - demo-tools
-      authSource: development
+    baseUrl: http://127.0.0.1:4210/api/auth
+    trustedOrigins:
+      - http://127.0.0.1:5273
+    seedUsers:
+      - email: e2e-superadmin@example.test
+        displayLabel: E2E Superadmin
+        passwordEnvName: E2E_SUPERADMIN_PASSWORD
+        developmentPassword: e2e-superadmin-password
+        roles:
+          - user
+          - admin
+          - superadmin
+        permissionRefs:
+          - demo-tools
+      - email: e2e-user@example.test
+        displayLabel: E2E User
+        passwordEnvName: E2E_USER_PASSWORD
+        developmentPassword: e2e-user-password
+        roles:
+          - user
+        permissionRefs:
+          - demo-tools
 retention:
   conversationDays: 1
   auditDays: 30
@@ -24,6 +36,18 @@ modelProviders:
   - id: local
     type: deterministic
     model: deterministic-local
+usage:
+  limits:
+    modelCallsPerDay: 12
+    tokensPerDay: 25000
+    tokensPerMonth: 250000
+  pricing:
+    currency: USD
+    models:
+      - providerId: local
+        model: deterministic-local
+        inputPricePerMillionTokens: 0
+        outputPricePerMillionTokens: 0
 defaultAgentName: application_assistant
 agents:
   - name: application_assistant
@@ -37,6 +61,15 @@ tools:
   - name: document.application_summary
     enabled: true
 ui:
+  clientName: E2E Customer
   title: Agent Chat E2E
   welcomeMessage: E2E ready.
   accentColor: "#0f766e"
+  theme:
+    accentColor: "#0f766e"
+    accentStrongColor: "#0b5f59"
+    backgroundColor: "#f4f1ea"
+    surfaceColor: "#fffdfa"
+    textColor: "#17201d"
+    mutedTextColor: "#657069"
+    borderColor: "#d8d2c5"

@@ -9,10 +9,12 @@ Postgres stores normal product data:
 - conversations, scoped to an authenticated user
 - messages
 - audit events
+- model usage events
 - config snapshots
 - user identity mappings
 - conversation retention state
 - tool call records
+- usage summaries for governance and configured limits
 - retrieval reference metadata
 
 The vector storage decision remains separate. Postgres may also provide vector search through pgvector, but the retrieval adapter should avoid coupling the platform to pgvector only.

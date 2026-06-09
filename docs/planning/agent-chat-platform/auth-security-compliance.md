@@ -38,7 +38,7 @@ The exact customer token can stay small and customer-specific. The platform shou
 
 V1 auth adapters:
 
-- **Development auth adapter**: local-only mock/configured user for standalone development.
+- **Development auth adapter**: local-only configured users for standalone development and role testing.
 - **Customer-backed token adapter**: production adapter for embedded chat where the customer's application is the login authority.
 
 Future auth adapters may support OIDC, customer-signed JWTs, SAML-backed gateways, or other customer identity patterns without changing the rest of the chat runtime.
@@ -65,7 +65,8 @@ The auth model has two initial paths:
 
 1. **Development/local auth**
    - Used by the standalone chat UI during local development.
-   - Provides a configured mock/dev user without depending on the customer's application.
+   - Provides configured mock/dev users without depending on the customer's application.
+   - Should support switching between representative roles, such as a normal user and a superadmin, through dev-only configuration and request headers.
    - Must be disabled or explicitly guarded in production.
 
 2. **Customer-backed session token**

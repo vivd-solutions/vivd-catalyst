@@ -29,15 +29,19 @@ The deployment flow should stay the same regardless of who operates the client i
 - **Embed surface**: customer-facing integration point, probably starting with a script tag that mounts an iframe or web component.
 - **Standalone chat UI**: first-party full-page/local chat surface for testing, development, demos, and non-embedded deployments.
 - **Chat API**: backend API used by the widget, standalone UI, and future SDKs.
-- **API client**: generated or generated-assisted frontend client for the schema-first HTTP API.
+- **API contract**: schema-first HTTP request/response contract consumed by the server and API client.
+- **API client**: generated or generated-assisted frontend client adapter for the schema-first HTTP API.
 - **Auth adapter**: turns an incoming request/session token into an authenticated product user with roles, permissions, and audit context.
+- **Conversation workflow**: owns user-scoped active conversation access, retention-aware creation/deletion, chat-turn persistence, agent-run observation, and conversation/message audit outcomes.
 - **Agent runtime interface**: starts, continues, observes, and cancels agent work.
 - **Execution runtime**: concrete backend that performs agent work, such as an in-process chat loop, background worker, or isolated coding-agent machine.
 - **Tool execution interface**: executes one validated tool call with caller context, deadlines, cancellation, and audit output.
 - **Model provider adapter**: abstracts Azure OpenAI, OpenAI, or other model providers.
+- **Usage governance**: owns model usage limit checks, usage summaries, and serialized v1 model-call accounting for a client instance.
 - **Tool adapter layer**: normalizes custom code tools, OpenAPI API tools, built-in platform tools, and future MCP tools.
 - **Knowledge adapter layer**: connects document stores, vector search, file search, and customer knowledge sources.
 - **Config registry**: stores and validates client-instance configuration.
+- **Governance action layer**: centralizes admin/superadmin role checks and audit events for sensitive operational reads or mutations.
 - **Audit and observability**: records traceable events without over-retaining sensitive prompts or documents.
 
 ## Runtime Granularity
@@ -150,6 +154,8 @@ interface ToolExecution {
 - input preview/risk classification where needed
 
 If approval is required, the agent runtime emits `tool_permission_requested`, pauses the run, and resumes after a permission decision. `execute` must never run a tool call that is denied or still awaiting approval.
+
+V1 keeps the approval event shape in the product contract, but the local HTTP request path does not resume paused runs yet. Until resume support exists end to end, startup validation should reject enabled `approval_required` tool policies instead of accepting a configuration that can only fail at runtime.
 
 `ToolExecutionRequest` should be JSON-serializable and worker-friendly:
 

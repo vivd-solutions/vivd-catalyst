@@ -1,0 +1,135 @@
+.acp-admin {
+  grid-template-rows: auto minmax(0, 1fr);
+}
+
+.acp-admin-content {
+  display: grid;
+  align-content: start;
+  gap: 18px;
+  min-height: 0;
+  padding: 18px;
+  overflow: auto;
+  background: var(--acp-surface);
+}
+
+.acp-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.acp-metric,
+.acp-admin-section {
+  border: 1px solid var(--acp-line);
+  border-radius: 8px;
+  background: #ffffff;
+}
+
+.acp-metric {
+  display: grid;
+  gap: 7px;
+  padding: 14px;
+}
+
+.acp-metric--primary {
+  grid-column: span 2;
+}
+
+.acp-metric div {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 8px;
+  color: var(--acp-accent-strong);
+  background: #e5f3ef;
+}
+
+.acp-metric span,
+.acp-metric small,
+.acp-limit-list dt,
+.acp-table-row span,
+.acp-admin-section p {
+  color: var(--acp-muted);
+  font-size: 12px;
+}
+
+.acp-metric strong {
+  font-size: 24px;
+  overflow-wrap: anywhere;
+}
+
+.acp-metric--primary strong {
+  font-size: 32px;
+}
+
+.acp-admin-section {
+  display: grid;
+  gap: 10px;
+  padding: 14px;
+}
+
+.acp-admin-section h2 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.acp-limit-list {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.acp-limit-list div {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+  padding: 10px;
+  border-radius: 8px;
+  background: var(--acp-soft);
+}
+
+.acp-limit-list dt {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.acp-limit-list dd {
+  margin: 0;
+  font-weight: 700;
+}
+
+.acp-table {
+  display: grid;
+  gap: 6px;
+}
+
+.acp-table-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.3fr) minmax(120px, 1fr) minmax(90px, 0.7fr) minmax(80px, 0.8fr);
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--acp-soft);
+}
+
+.acp-table-row--usage {
+  grid-template-columns:
+    minmax(150px, 1.2fr)
+    minmax(110px, 0.85fr)
+    minmax(100px, 0.7fr)
+    minmax(90px, 0.7fr)
+    minmax(80px, 0.7fr);
+}
+
+.acp-table-row strong,
+.acp-table-row span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

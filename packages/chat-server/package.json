@@ -16,12 +16,14 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-chat-platform/api-client": "workspace:*",
+    "@agent-chat-platform/api-contract": "workspace:*",
     "@agent-chat-platform/audit": "workspace:*",
     "@agent-chat-platform/auth": "workspace:*",
     "@agent-chat-platform/chat-core": "workspace:*",
     "@agent-chat-platform/config-schema": "workspace:*",
+    "@agent-chat-platform/usage-governance": "workspace:*",
     "@fastify/cors": "^11.2.0",
+    "ai": "^6.0.199",
     "fastify": "^5.8.5",
     "zod": "^4.4.3"
   },
@@ -30,4 +32,3 @@
     "typescript": "^6.0.3"
   }
 }
-

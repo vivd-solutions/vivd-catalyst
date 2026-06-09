@@ -24,6 +24,10 @@ _Avoid_: Tenant, workspace, account
 The reusable product foundation that provides embeddable chat, agent execution, tool integration, configuration, and operational controls.
 _Avoid_: Starter kit, template
 
+**Client Branding**:
+Customer-specific presentation metadata for a client instance, including customer name, logo, and theme colors.
+_Avoid_: White-labeling, skin
+
 **Agent**:
 A configured AI behavior with instructions, model settings, available tools, and optional knowledge sources.
 _Avoid_: Bot, assistant
@@ -72,6 +76,10 @@ _Avoid_: Forked platform, tenant customization
 The TypeScript application that imports platform packages, registers client tools, loads client configuration, and builds the deployable client-specific server image.
 _Avoid_: Starter app, generated app
 
+**Client Assembly Validation**:
+Startup validation that proves a client assembly app's code, release config, tool implementations, and agent tool references form a consistent deployable client instance.
+_Avoid_: Runtime registration, dynamic plugin discovery
+
 **Agent Capability**:
 A permissioned group of tools or runtime behaviors made available to an agent for a class of work, such as file fetching, document processing, retrieval, or browser automation.
 _Avoid_: Tool, feature
@@ -116,6 +124,10 @@ _Avoid_: Vector store, search client
 A persisted chat history owned by an authenticated user and retained according to the client instance's retention policy.
 _Avoid_: Session, chat session
 
+**Conversation Workflow**:
+The product module that owns user-scoped conversation access, retention-aware creation/deletion, chat-turn persistence, agent-run observation, and conversation/message audit outcomes.
+_Avoid_: Conversation route, message handler
+
 **Conversation Retention**:
 The configured policy and deletion behavior for persisted conversations, messages, tool call records, and related outputs.
 _Avoid_: Log retention, backup retention
@@ -128,6 +140,18 @@ _Avoid_: Retention, database cleanup
 A minimized record of a security, governance, data, tool, config, or lifecycle action.
 _Avoid_: Application log, full transcript
 
+**Model Usage Event**:
+A minimized record of one model provider call, including provider, model, token counts when reported, and correlation metadata.
+_Avoid_: Billing log, full prompt log
+
+**Usage Limit**:
+A release-config policy that caps model calls or model tokens for a client instance over a defined period.
+_Avoid_: Provider rate limit, spend cap
+
+**Usage Governance**:
+The product module that enforces usage limits, serializes v1 model-call accounting, and produces minimized usage summaries for governance views.
+_Avoid_: Billing service, analytics tracker
+
 **Audit Retention**:
 The configured retention policy for audit events, separate from conversation retention.
 _Avoid_: Conversation retention, backup retention
@@ -136,6 +160,10 @@ _Avoid_: Conversation retention, backup retention
 The customer-facing integration point that renders the chat inside a customer application.
 _Avoid_: Widget, script tag
 
+**API Contract**:
+The schema-first HTTP request and response contract consumed by the chat backend and generated or generated-assisted API clients.
+_Avoid_: API client, route implementation
+
 **Standalone Chat UI**:
 A first-party full-page chat surface used for local development, testing, demos, or non-embedded deployments.
 _Avoid_: Embedded widget, admin UI
@@ -143,6 +171,10 @@ _Avoid_: Embedded widget, admin UI
 **Control Plane**:
 The settings and governance surface for a client instance, including configuration visibility, retention status, audit views, and deletion workflows.
 _Avoid_: Standalone chat UI, admin-only app
+
+**Superadmin Panel**:
+The control-plane view restricted to superadmins for sensitive governance state such as usage, audit, retention, and deletion operations.
+_Avoid_: Admin dashboard, analytics app
 
 **Governance Action**:
 A permissioned action that exposes or changes sensitive operational state, such as viewing audit status, changing retention policy, exporting data, or deleting user data.

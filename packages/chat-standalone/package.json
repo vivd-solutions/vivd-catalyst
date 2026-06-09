@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@agent-chat-platform/chat-ui": "workspace:*",
+    "@tanstack/react-router": "^1.170.15",
     "react": "^19.2.7",
     "react-dom": "^19.2.7"
   },
@@ -22,4 +23,3 @@
     "vite": "^8.0.16"
   }
 }
-

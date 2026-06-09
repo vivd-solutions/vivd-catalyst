@@ -14,10 +14,16 @@ V1 should include:
 - Postgres for conversations, messages, audit events, config snapshots, user identity mappings, and retention state
 - model provider adapter for enterprise, region-controllable chat/document models such as Azure OpenAI, OpenAI, or Vertex AI
 - schema-first HTTP API
+- API contract package shared by server validation and API client
 - config files for agents, tools, and basic UI settings
 - typed UI extension points for domain outputs, especially document analysis panels/tool-result renderers
 - basic control-plane/governance surface for config visibility, retention status, audit views, deletion workflows, and sensitive admin actions
+- superadmin panel for model cost, model usage, configured pricing/usage limits, recent usage events, and audit metadata
 - minimized audit event layer with a product-owned event schema/recorder for auth, conversations, tools, documents, config, deletion, and admin actions
+- model usage event layer for provider, model, token counts when reported by the provider, and correlation metadata
+- configurable pricing and usage limits for model calls and model tokens in release config
+- client branding and theme config for customer name, logo, and colors
+- startup validation that proves release-config tool references are implemented and enabled consistently
 - document processing interfaces for Markdown conversion and structured extraction
 - Docker images for runtime services
 - Docker Compose for local development
@@ -35,9 +41,12 @@ Recommended order:
 4. One custom code tool defined through the tool SDK and exposed through the tool registry.
 5. Tool execution through the worker-compatible interface, with in-process execution allowed only as an adapter for local development or trusted internal tools.
 6. Minimal audit/trace events for auth, conversation creation, message completion, and tool execution.
-7. Customer-backed token auth.
-8. Embeddable widget reusing the same chat core.
-9. Domain UI output for the first document analysis workflow.
+7. Model usage tracking and superadmin usage visibility.
+8. API contract package consumed by server validation and the API client.
+9. Startup validation for config/tool implementation closure.
+10. Customer-backed token auth.
+11. Embeddable widget reusing the same chat core.
+12. Domain UI output for the first document analysis workflow.
 
 This sequencing keeps the architecture reusable while avoiding early work on extension surfaces that have not yet been exercised by a real workflow.
 

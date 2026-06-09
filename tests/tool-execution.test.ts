@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
+import type { AuditRecorder } from "@agent-chat-platform/audit";
 import {
   asAgentRunId,
   asClientInstanceId,
   asConversationId,
   asToolCallId,
+  type AuditEvent,
   type ToolExecutionContext
 } from "@agent-chat-platform/chat-core";
 import { InProcessToolExecution, ToolRegistry } from "@agent-chat-platform/tool-execution";
@@ -25,10 +27,6 @@ describe("in-process tool execution", () => {
         return toolSuccess({ echoed: input.text }, { modelSummary: input.text });
       }
     });
-    const execution = new InProcessToolExecution({
-      registry: new ToolRegistry({ tools: [tool] }),
-      getAgentToolNames: () => ["demo.echo"]
-    });
     const context: ToolExecutionContext = {
       clientInstanceId: asClientInstanceId("demo-local"),
       correlationId: "corr_test",
@@ -42,6 +40,23 @@ describe("in-process tool execution", () => {
         authSource: "test"
       }
     };
+    const auditEvents: Array<{ type: string; status: string; metadata?: unknown }> = [];
+    const auditRecorder: AuditRecorder = {
+      async record(input) {
+        auditEvents.push(input);
+        return {
+          ...input,
+          id: "audit_1" as AuditEvent["id"],
+          clientInstanceId: context.clientInstanceId,
+          createdAt: new Date().toISOString()
+        };
+      }
+    };
+    const execution = new InProcessToolExecution({
+      registry: new ToolRegistry({ tools: [tool] }),
+      getAgentToolNames: () => ["demo.echo"],
+      auditRecorder
+    });
     const request = {
       toolName: "demo.echo",
       toolCallId: asToolCallId("toolcall_1"),
@@ -63,6 +78,16 @@ describe("in-process tool execution", () => {
       expect(result.output).toEqual({ echoed: "hello" });
       expect(result.modelSummary).toBe("hello");
     }
+    expect(auditEvents.map((event) => event.type)).toEqual([
+      "tool.authorization_checked",
+      "tool.started",
+      "tool.completed"
+    ]);
+    expect(auditEvents[0]).toMatchObject({
+      status: "success",
+      metadata: {
+        authorizationStatus: "allowed"
+      }
+    });
   });
 });
-

@@ -1,5 +1,5 @@
 import postgres from "postgres";
-import type { Sql } from "postgres";
+import type { Notice, Sql } from "postgres";
 import {
   AppError,
   type AuditEvent,
@@ -12,17 +12,43 @@ import {
   type ConversationStore,
   type CreateConversationInput,
   type CreateMessageInput,
-  asConversationId,
-  asMessageId,
+  type ModelUsageEvent,
+  type ModelUsageEventInput,
+  type ModelUsageEventStore,
+  type ModelUsageWindowSummary,
   createPlatformId
 } from "@agent-chat-platform/chat-core";
+import { runPostgresMigrations } from "./migrations";
+import {
+  type AuditEventRow,
+  type ConversationRow,
+  type MessageRow,
+  type ModelUsageEventRow,
+  mapAuditEvent,
+  mapConversation,
+  mapMessage,
+  mapModelUsageEvent
+} from "./rows";
 
 export interface PostgresPlatformStoreOptions {
   databaseUrl: string;
   runMigrations?: boolean;
 }
 
-export class PostgresPlatformStore implements ConversationStore, AuditEventStore {
+const DUPLICATE_RELATION_NOTICE_CODE = "42P07";
+
+function handlePostgresNotice(notice: Notice): void {
+  if (
+    notice.code === DUPLICATE_RELATION_NOTICE_CODE &&
+    notice.message?.includes("already exists, skipping")
+  ) {
+    return;
+  }
+
+  console.warn(notice);
+}
+
+export class PostgresPlatformStore implements ConversationStore, AuditEventStore, ModelUsageEventStore {
   private readonly sql: Sql;
 
   constructor(sql: Sql) {
@@ -32,7 +58,8 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
   static async connect(options: PostgresPlatformStoreOptions): Promise<PostgresPlatformStore> {
     const sql = postgres(options.databaseUrl, {
       max: 10,
-      idle_timeout: 30
+      idle_timeout: 30,
+      onnotice: handlePostgresNotice
     });
     const store = new PostgresPlatformStore(sql);
     if (options.runMigrations ?? true) {
@@ -46,57 +73,7 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
   }
 
   async migrate(): Promise<void> {
-    await this.sql`
-      create table if not exists conversations (
-        id text primary key,
-        client_instance_id text not null,
-        owner_user_id text not null,
-        owner_external_user_id text not null,
-        title text not null,
-        status text not null,
-        created_at timestamptz not null,
-        updated_at timestamptz not null,
-        retained_until timestamptz not null,
-        deleted_at timestamptz
-      )
-    `;
-    await this.sql`
-      create index if not exists conversations_owner_idx
-      on conversations (client_instance_id, owner_external_user_id, updated_at desc)
-    `;
-    await this.sql`
-      create table if not exists messages (
-        id text primary key,
-        client_instance_id text not null,
-        conversation_id text not null references conversations(id) on delete cascade,
-        role text not null,
-        text text not null,
-        created_at timestamptz not null,
-        metadata jsonb not null default '{}'::jsonb
-      )
-    `;
-    await this.sql`
-      create index if not exists messages_conversation_idx
-      on messages (client_instance_id, conversation_id, created_at asc)
-    `;
-    await this.sql`
-      create table if not exists audit_events (
-        id text primary key,
-        client_instance_id text not null,
-        type text not null,
-        status text not null,
-        actor jsonb,
-        subject text,
-        reason text,
-        correlation_id text not null,
-        created_at timestamptz not null,
-        metadata jsonb not null default '{}'::jsonb
-      )
-    `;
-    await this.sql`
-      create index if not exists audit_events_client_created_idx
-      on audit_events (client_instance_id, created_at desc)
-    `;
+    await runPostgresMigrations(this.sql);
   }
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
@@ -293,91 +270,103 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
         `;
     return rows.map(mapAuditEvent);
   }
-}
 
-interface ConversationRow {
-  id: string;
-  client_instance_id: string;
-  owner_user_id: string;
-  owner_external_user_id: string;
-  title: string;
-  status: Conversation["status"];
-  created_at: Date;
-  updated_at: Date;
-  retained_until: Date;
-  deleted_at: Date | null;
-}
-
-interface MessageRow {
-  id: string;
-  client_instance_id: string;
-  conversation_id: string;
-  role: ChatMessage["role"];
-  text: string;
-  created_at: Date;
-  metadata: ChatMessage["metadata"];
-}
-
-interface AuditEventRow {
-  id: string;
-  client_instance_id: string;
-  type: string;
-  status: AuditEvent["status"];
-  actor: AuditEvent["actor"] | null;
-  subject: string | null;
-  reason: string | null;
-  correlation_id: string;
-  created_at: Date;
-  metadata: AuditEvent["metadata"];
-}
-
-function mapConversation(row: ConversationRow | undefined): Conversation {
-  if (!row) {
-    throw new AppError("INTERNAL", "Expected conversation row");
+  async appendModelUsageEvent(input: ModelUsageEventInput): Promise<ModelUsageEvent> {
+    const id = createPlatformId<"ModelUsageEventId">("usage");
+    const createdAt = new Date().toISOString();
+    const [row] = await this.sql<ModelUsageEventRow[]>`
+      insert into model_usage_events (
+        id,
+        client_instance_id,
+        conversation_id,
+        agent_run_id,
+        agent_name,
+        provider_id,
+        model,
+        input_tokens,
+        output_tokens,
+        total_tokens,
+        source,
+        correlation_id,
+        created_at
+      )
+      values (
+        ${id},
+        ${input.clientInstanceId},
+        ${input.conversationId},
+        ${input.agentRunId},
+        ${input.agentName},
+        ${input.providerId},
+        ${input.model},
+        ${input.inputTokens},
+        ${input.outputTokens},
+        ${input.totalTokens},
+        ${input.source},
+        ${input.correlationId},
+        ${createdAt}
+      )
+      returning *
+    `;
+    return mapModelUsageEvent(row);
   }
-  return {
-    id: asConversationId(row.id),
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    ownerUserId: row.owner_user_id,
-    ownerExternalUserId: row.owner_external_user_id,
-    title: row.title,
-    status: row.status,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-    retainedUntil: row.retained_until.toISOString(),
-    deletedAt: row.deleted_at?.toISOString()
-  };
-}
 
-function mapMessage(row: MessageRow | undefined): ChatMessage {
-  if (!row) {
-    throw new AppError("INTERNAL", "Expected message row");
-  }
-  return {
-    id: asMessageId(row.id),
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    conversationId: asConversationId(row.conversation_id),
-    role: row.role,
-    text: row.text,
-    createdAt: row.created_at.toISOString(),
-    metadata: row.metadata
-  };
-}
+  async summarizeModelUsageEvents(input: {
+    clientInstanceId: ClientInstanceId;
+    start?: string;
+    end?: string;
+  }): Promise<ModelUsageWindowSummary> {
+    const [row] = await this.sql<
+      Array<{
+        model_call_count: number;
+        input_tokens: number;
+        output_tokens: number;
+        total_tokens: number;
+      }>
+    >`
+      select
+        count(*)::int as model_call_count,
+        coalesce(sum(input_tokens), 0)::int as input_tokens,
+        coalesce(sum(output_tokens), 0)::int as output_tokens,
+        coalesce(sum(total_tokens), 0)::int as total_tokens
+      from model_usage_events
+      where client_instance_id = ${input.clientInstanceId}
+        and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
+        and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
+    `;
 
-function mapAuditEvent(row: AuditEventRow | undefined): AuditEvent {
-  if (!row) {
-    throw new AppError("INTERNAL", "Expected audit event row");
+    return {
+      start: input.start,
+      end: input.end,
+      modelCallCount: row?.model_call_count ?? 0,
+      inputTokens: row?.input_tokens ?? 0,
+      outputTokens: row?.output_tokens ?? 0,
+      totalTokens: row?.total_tokens ?? 0
+    };
   }
-  return {
-    id: row.id as AuditEvent["id"],
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    type: row.type,
-    status: row.status,
-    actor: row.actor ?? undefined,
-    subject: row.subject ?? undefined,
-    reason: row.reason ?? undefined,
-    correlationId: row.correlation_id,
-    createdAt: row.created_at.toISOString(),
-    metadata: row.metadata
-  };
+
+  async listModelUsageEvents(input: {
+    clientInstanceId: ClientInstanceId;
+    start?: string;
+    end?: string;
+    limit?: number;
+  }): Promise<ModelUsageEvent[]> {
+    const rows =
+      input.limit === undefined
+        ? await this.sql<ModelUsageEventRow[]>`
+            select * from model_usage_events
+            where client_instance_id = ${input.clientInstanceId}
+              and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
+              and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
+            order by created_at desc
+          `
+        : await this.sql<ModelUsageEventRow[]>`
+            select * from model_usage_events
+            where client_instance_id = ${input.clientInstanceId}
+              and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
+              and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
+            order by created_at desc
+            limit ${input.limit}
+          `;
+    return rows.map(mapModelUsageEvent);
+  }
 }

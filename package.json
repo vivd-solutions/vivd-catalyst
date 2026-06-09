@@ -8,7 +8,7 @@
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "dev": "pnpm --filter @agent-chat-platform/demo dev",
     "test": "vitest run",
-    "test:e2e": "pnpm build && playwright test",
+    "test:e2e": "VITE_CHAT_API_URL=http://127.0.0.1:4210 pnpm build && playwright test",
     "typecheck": "pnpm -r typecheck"
   },
   "devDependencies": {

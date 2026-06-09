@@ -8,6 +8,7 @@ export type ConversationId = Brand<string, "ConversationId">;
 export type MessageId = Brand<string, "MessageId">;
 export type ToolCallId = Brand<string, "ToolCallId">;
 export type AuditEventId = Brand<string, "AuditEventId">;
+export type ModelUsageEventId = Brand<string, "ModelUsageEventId">;
 
 export function createPlatformId<TBrand extends string>(
   prefix: string
@@ -39,4 +40,3 @@ export function asAgentRunId(value: string): AgentRunId {
 export function asToolCallId(value: string): ToolCallId {
   return value as ToolCallId;
 }
-

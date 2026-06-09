@@ -18,10 +18,18 @@
   },
   "dependencies": {
     "@agent-chat-platform/api-client": "workspace:*",
+    "@ai-sdk/react": "^3.0.201",
+    "@assistant-ui/react": "^0.14.16",
+    "@assistant-ui/react-ai-sdk": "^1.3.33",
+    "@radix-ui/react-slot": "^1.2.5",
     "@tanstack/react-query": "^5.101.0",
+    "ai": "^6.0.199",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "lucide-react": "^1.17.0",
     "react": "^19.2.7",
-    "react-dom": "^19.2.7"
+    "react-dom": "^19.2.7",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@types/react": "^19.2.17",
@@ -30,4 +38,3 @@
     "typescript": "^6.0.3"
   }
 }
-

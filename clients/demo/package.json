@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "build": "tsup src/server.ts --format esm --out-dir dist",
-    "dev": "pnpm --filter './packages/*' build && concurrently -n api,ui -c cyan,green \"pnpm dev:api\" \"pnpm --filter @agent-chat-platform/chat-standalone dev\"",
+    "dev": "pnpm dev:db && pnpm --filter './packages/*' build && concurrently -n api,ui -c cyan,green \"pnpm dev:api\" \"pnpm --filter @agent-chat-platform/chat-standalone dev\"",
     "dev:api": "tsx src/server.ts",
+    "dev:db": "docker compose up -d postgres",
     "start": "node dist/server.js",
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },

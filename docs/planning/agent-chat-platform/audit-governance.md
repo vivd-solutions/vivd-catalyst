@@ -58,9 +58,11 @@ The implementation target should be small and concrete:
 - product-owned `AuditEvent` schema and `AuditRecorder` interface
 - Postgres-backed audit event storage
 - audit writes at auth, conversation, tool, document, config, deletion, and admin-action boundaries
+- audit writes for tool authorization checks, including denials and approval-required decisions
 - correlation ids that connect API requests, model calls, tool calls, and audit events
 - control-plane screens for audit event search/filtering, retention status, and deletion actions
-- permission checks for admin/superadmin routes
+- superadmin usage screen led by model cost summaries, with model-call counts, provider-reported token usage, configured pricing/limits, and recent usage events as supporting context
+- a governance action layer that centralizes permission checks and read-audit events for admin/superadmin routes
 - reason-required flow for sensitive admin/superadmin actions
 - integration tests that prove sensitive actions create audit events
 
@@ -82,6 +84,7 @@ Audit events should avoid full sensitive payloads:
 - no raw file bytes
 - no long-lived tokens or secrets
 - no unnecessary personal data
+- no prompt or completion payloads in usage events
 
 Instead, audit records should use references and metadata:
 
@@ -96,6 +99,31 @@ Instead, audit records should use references and metadata:
 - timestamps
 - request/correlation id
 - reason code where applicable
+- provider id, model id, and token counts for model usage events
+
+## Usage Governance
+
+Model usage is governance metadata. V1 should record one Model Usage Event per model provider call. The event should include:
+
+- provider id
+- model id
+- input, output, and total token counts when the provider reports them
+- source marker such as `provider_reported` or `not_reported`
+- conversation id
+- agent run id
+- correlation id
+
+Provider-reported token usage is the source of truth where available. OpenAI-compatible chat responses expose prompt, completion, and total token usage for non-streaming calls. Other providers may omit usage; in that case the platform should record the call with `not_reported` instead of inventing billing-grade numbers.
+
+Cost summaries are derived governance metadata, not provider billing records. They should use provider-reported input/output token counts plus explicit release-config pricing for the matching provider/model. If pricing is missing, the usage view should show the call as unpriced instead of inventing a cost.
+
+Usage limits are release-config policy, not provider rate limits. Provider rate limits still apply separately and may be lower or higher than the client instance's configured governance limits.
+
+Usage Governance should own model-call limit checks and summaries. In v1 it should serialize model-call accounting per client instance inside the running process so daily call limits cannot be raced by concurrent local agent runs. Multi-process or horizontally scaled deployments should deepen the Postgres adapter with atomic reservation semantics before relying on strict limits across processes.
+
+Viewing usage summaries is itself a governance action. The superadmin usage route should verify the superadmin role and write a minimized `governance.usage_viewed` audit event before returning usage metadata.
+
+Viewing audit events is also a governance action. The audit-events route should verify an admin/superadmin role and write a minimized `governance.audit_events_viewed` audit event before returning audit metadata.
 
 ## Audit Retention
 

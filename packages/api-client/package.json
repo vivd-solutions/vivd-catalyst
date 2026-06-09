@@ -16,6 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@agent-chat-platform/api-contract": "workspace:*",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -23,4 +24,3 @@
     "typescript": "^6.0.3"
   }
 }
-

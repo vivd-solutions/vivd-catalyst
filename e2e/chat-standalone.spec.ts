@@ -1,6 +1,202 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+const apiBaseUrl = "http://127.0.0.1:4210";
+const normalUser = {
+  email: "e2e-user@example.test",
+  password: "e2e-user-password"
+};
+const superadminUser = {
+  email: "e2e-superadmin@example.test",
+  password: "e2e-superadmin-password"
+};
+
+test("standalone login renders the authenticated chat workspace", async ({ page }) => {
+  await page.goto("/");
+
+  await expect(page.getByRole("main", { name: "Sign in" })).toBeVisible();
+  await page.getByLabel("Email").fill(normalUser.email);
+  await page.getByLabel("Password").fill(normalUser.password);
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+
+  await expect(page.getByText("E2E Customer")).toBeVisible();
+  await expect(page.getByText("E2E User")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Open superadmin panel" })).toHaveCount(0);
+});
+
+test("composer grows for multiline input", async ({ page }) => {
+  await signInViaUi(page, normalUser);
+  await page.goto("/");
+
+  const input = page.getByPlaceholder("Message");
+  await expect(input).toBeVisible();
+  const initialHeight = await input.evaluate((element) => element.getBoundingClientRect().height);
+
+  await input.fill("Line one\nLine two\nLine three");
+
+  await expect
+    .poll(() => input.evaluate((element) => element.getBoundingClientRect().height))
+    .toBeGreaterThan(initialHeight);
+});
+
+test("composer sends on Enter and inserts a newline on Shift+Enter", async ({ page }) => {
+  await signInViaUi(page, normalUser);
+  let messageRequests = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/chat") {
+      messageRequests += 1;
+    }
+  });
+
+  await page.goto("/");
+
+  const input = page.getByPlaceholder("Message");
+  await expect(input).toBeVisible();
+
+  const messageText = `Keyboard submit ${Date.now()}`;
+  await input.fill(messageText);
+  await input.focus();
+  await page.keyboard.down("Shift");
+  await page.keyboard.press("Enter");
+  await page.keyboard.up("Shift");
+  await expect(input).toHaveValue(`${messageText}\n`);
+  expect(messageRequests).toBe(0);
+
+  const messageResponse = page.waitForResponse(
+    (response) =>
+      response.request().method() === "POST" &&
+      new URL(response.url()).pathname === "/api/chat"
+  );
+  await input.press("Enter");
+  await messageResponse;
+
+  expect(messageRequests).toBe(1);
+  await expect(input).toHaveValue("");
+});
+
+test("new conversation action opens an unsaved draft screen", async ({ page }) => {
+  await signInViaUi(page, normalUser);
+  let createConversationRequests = 0;
+  page.on("request", (request) => {
+    if (request.method() === "POST" && new URL(request.url()).pathname === "/api/conversations") {
+      createConversationRequests += 1;
+    }
+  });
+
+  await page.goto("/");
+  const newConversationButton = page.getByRole("button", { name: "New", exact: true });
+  await expect(newConversationButton).toBeVisible();
+  await expect(page.getByText("New conversation")).toBeVisible();
+
+  const input = page.getByPlaceholder("Message");
+  await input.fill("Draft on the new screen");
+  await newConversationButton.click();
+
+  expect(createConversationRequests).toBe(0);
+  await expect(input).toHaveValue("Draft on the new screen");
+});
+
+test("composer drafts are scoped to the new screen and selected conversations", async ({ page }) => {
+  await signInViaApi(page, normalUser);
+  const title = `Draft target ${Date.now()}`;
+  const created = await page.request.post(`${apiBaseUrl}/api/conversations`, {
+    data: { title }
+  });
+  expect(created.ok()).toBe(true);
+
+  await page.goto("/");
+  const input = page.getByPlaceholder("Message");
+  await input.fill("New screen draft");
+
+  await page.getByRole("button", { name: title, exact: true }).click();
+  await expect(input).toHaveValue("");
+  await input.fill("Selected conversation draft");
+
+  await page.getByRole("button", { name: "New", exact: true }).click();
+  await expect(input).toHaveValue("New screen draft");
+
+  await page.getByRole("button", { name: title, exact: true }).click();
+  await expect(input).toHaveValue("Selected conversation draft");
+});
+
+test("conversation rail deletes a conversation", async ({ page }) => {
+  await signInViaApi(page, normalUser);
+  let deleteConversationRequests = 0;
+  page.on("request", (request) => {
+    if (request.method() === "DELETE" && /^\/api\/conversations\/[^/]+$/u.test(new URL(request.url()).pathname)) {
+      deleteConversationRequests += 1;
+    }
+  });
+
+  const title = `Delete target ${Date.now()}`;
+  const created = await page.request.post(`${apiBaseUrl}/api/conversations`, {
+    data: { title }
+  });
+  expect(created.ok()).toBe(true);
+
+  await page.goto("/");
+  const conversations = page.locator(".acp-conversation");
+  const targetConversation = conversations.filter({ hasText: title });
+  await expect(targetConversation).toHaveCount(1);
+
+  const conversationCountBefore = await conversations.count();
+  const deleteButton = targetConversation.getByRole("button", {
+    name: `Delete conversation ${title}`,
+    exact: true
+  });
+  await expect(deleteButton).toBeVisible();
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "DELETE" &&
+        /^\/api\/conversations\/[^/]+$/u.test(new URL(response.url()).pathname)
+    ),
+    deleteButton.click()
+  ]);
+
+  expect(deleteConversationRequests).toBe(1);
+  await expect(targetConversation).toHaveCount(0);
+  await expect(conversations).toHaveCount(conversationCountBefore - 1);
+});
+
+test("standalone auth gates superadmin views", async ({ page }) => {
+  await signInViaUi(page, superadminUser);
+  await expect(page.getByRole("button", { name: "Usage" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open superadmin panel" })).toBeVisible();
+
+  await page.getByRole("button", { name: "Sign out" }).click();
+  await expect(page.getByRole("main", { name: "Sign in" })).toBeVisible();
+  await signInViaUi(page, normalUser, { alreadyOnLogin: true });
+  await expect(page.getByRole("button", { name: "Open superadmin panel" })).toHaveCount(0);
+});
+
+test("workspace and superadmin keep page scroll locked", async ({ page }) => {
+  await signInViaApi(page, superadminUser);
+  for (let index = 0; index < 18; index += 1) {
+    const created = await page.request.post(`${apiBaseUrl}/api/conversations`, {
+      data: { title: `Scroll lock target ${Date.now()} ${index}` }
+    });
+    expect(created.ok()).toBe(true);
+  }
+
+  await page.goto("/");
+  await expect(page.getByText("E2E Customer")).toBeVisible();
+  await expectDocumentScrollLocked(page);
+
+  await page.getByRole("button", { name: "Open superadmin panel" }).click();
+  await expect(page.getByRole("region", { name: "Superadmin panel" })).toBeVisible();
+  await expectDocumentScrollLocked(page);
+});
+
+test("superadmin can open usage and audit views", async ({ page }) => {
+  await signInViaUi(page, superadminUser);
+  await expect(page.getByRole("button", { name: "Open superadmin panel" })).toBeVisible();
+  await page.getByRole("button", { name: "Open superadmin panel" }).click();
+  await expect(page.getByRole("region", { name: "Superadmin panel" })).toBeVisible();
+  await expect(page.getByText("Usage and governance")).toBeVisible();
+});
 
 test("standalone chat can run a configured tool", async ({ page }) => {
+  await signInViaUi(page, superadminUser);
   const applicantName = `E2E Jane ${Date.now()}`;
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
@@ -13,7 +209,7 @@ test("standalone chat can run a configured tool", async ({ page }) => {
   });
 
   await page.goto("/");
-  await page.getByRole("button", { name: "New" }).click();
+  await expect(page.getByText("E2E Customer")).toBeVisible();
   await page
     .getByPlaceholder("Message")
     .fill(
@@ -24,5 +220,84 @@ test("standalone chat can run a configured tool", async ({ page }) => {
   await expect(page.getByText("Tool work completed").last()).toBeVisible();
   await expect(page.getByText(applicantName).last()).toBeVisible();
   await expect(page.getByText("No review flags were raised.").last()).toBeVisible();
+
+  await page.getByRole("button", { name: "Open superadmin panel" }).click();
+  await expect(page.getByRole("region", { name: "Superadmin panel" })).toBeVisible();
+  await expect(page.getByText("Usage and governance")).toBeVisible();
+  await expect(page.getByText("Cost today")).toBeVisible();
+  await expect(page.getByText("Calls today")).toBeVisible();
+  await expect(page.getByText("Configured pricing")).toBeVisible();
+  await expect(page.getByText("local / deterministic-local")).toBeVisible();
+  await expect(page.getByText("Configured limits")).toBeVisible();
+  const configuredLimits = page.locator(".acp-admin-section").filter({
+    has: page.getByRole("heading", { name: "Configured limits" })
+  });
+  await expect(configuredLimits).toContainText("12");
+  await expect(configuredLimits).toContainText("25,000");
+  await expect(page.getByText("Recent model usage")).toBeVisible();
+  await expect(page.getByText("deterministic-local").first()).toBeVisible();
+  await expect(page.getByText("not_reported").first()).toBeVisible();
+  await expect(page.getByText("Recent audit events")).toBeVisible();
+  await expect(page.getByText("tool.completed").first()).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });
+
+async function signInViaUi(
+  page: Page,
+  user: { email: string; password: string },
+  options: { alreadyOnLogin?: boolean } = {}
+): Promise<void> {
+  if (!options.alreadyOnLogin) {
+    await page.goto("/");
+  }
+  await expect(page.getByRole("main", { name: "Sign in" })).toBeVisible();
+  await page.getByLabel("Email").fill(user.email);
+  await page.getByLabel("Password").fill(user.password);
+  await Promise.all([
+    page.waitForResponse(
+      (response) =>
+        response.request().method() === "POST" &&
+        new URL(response.url()).pathname === "/api/auth/sign-in/email"
+    ),
+    page.getByRole("button", { name: "Sign in", exact: true }).click()
+  ]);
+  await expect(page.getByText("E2E Customer")).toBeVisible();
+}
+
+async function signInViaApi(page: Page, user: { email: string; password: string }): Promise<void> {
+  const response = await page.request.post(`${apiBaseUrl}/api/auth/sign-in/email`, {
+    data: {
+      email: user.email,
+      password: user.password,
+      rememberMe: true
+    }
+  });
+  expect(response.ok()).toBe(true);
+}
+
+async function expectDocumentScrollLocked(page: Page): Promise<void> {
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const root = document.scrollingElement ?? document.documentElement;
+        return {
+          clientHeight: root.clientHeight,
+          scrollHeight: root.scrollHeight,
+          bodyOverflow: getComputedStyle(document.body).overflow
+        };
+      })
+    )
+    .toEqual(
+      expect.objectContaining({
+        bodyOverflow: "hidden"
+      })
+    );
+  const dimensions = await page.evaluate(() => {
+    const root = document.scrollingElement ?? document.documentElement;
+    return {
+      clientHeight: root.clientHeight,
+      scrollHeight: root.scrollHeight
+    };
+  });
+  expect(dimensions.scrollHeight).toBeLessThanOrEqual(dimensions.clientHeight + 1);
+}

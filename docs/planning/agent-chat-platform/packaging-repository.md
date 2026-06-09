@@ -7,15 +7,17 @@ The product should use a code-deployed model with reusable platform packages imp
 ```text
 platform packages
   @product/chat-core
+  @product/api-contract
+  @product/api-client
   @product/chat-server
   @product/chat-widget
   @product/chat-standalone
   @product/chat-ui
   @product/agent-runtime
+  @product/usage-governance
   @product/tool-execution
   @product/tool-sdk
   @product/config-schema
-  @product/api-client
   @product/retrieval
   @product/audit
 
@@ -39,7 +41,7 @@ The repository remains the source of truth. A CLI can validate, test tools, buil
 
 V1 should use release config only.
 
-Release config is version-controlled and deployed with the client assembly app. It defines agent behavior, tool availability, OpenAPI operation selections, built-in tool enablement, model provider options, domain UI output types, retention policy, and default policy bounds.
+Release config is version-controlled and deployed with the client assembly app. It defines agent behavior, tool availability, OpenAPI operation selections, built-in tool enablement, model provider options, domain UI output types, retention policy, usage limits, client branding/theme, and default policy bounds.
 
 Release config changes through the normal release/publish/deploy flow. The platform should snapshot the active release config at deploy/startup so runtime behavior is explainable.
 
@@ -124,6 +126,15 @@ createChatServer({
 }).listen();
 ```
 
+The platform assembly should validate the closure between release config and code before listening:
+
+- every agent tool reference must exist in release config
+- every enabled configured tool must have a registered implementation
+- disabled tools must not appear in an agent allowlist
+- v1 must reject enabled `approval_required` tools until the runtime supports resume
+
+This keeps the client assembly app thin while making code-deployed configuration failures explicit at startup.
+
 Tool code imports only the public tool SDK and product-owned types:
 
 ```ts
@@ -152,6 +163,30 @@ agents:
 
 Longer instructions may be moved into a separate Markdown file and referenced from YAML when that improves readability.
 
+Usage and branding config are part of the same release-config contract:
+
+```yaml
+usage:
+  limits:
+    modelCallsPerDay: 1000
+    tokensPerDay: 500000
+    tokensPerMonth: 10000000
+  pricing:
+    currency: USD
+    models:
+      - providerId: openai
+        model: gpt-4.1
+        inputPricePerMillionTokens: 2
+        outputPricePerMillionTokens: 8
+ui:
+  clientName: Example Customer
+  logoUrl: https://example.com/logo.png
+  theme:
+    accentColor: "#0f766e"
+    backgroundColor: "#f5f3ee"
+    surfaceColor: "#fffdfa"
+```
+
 ## Package Split
 
 Suggested initial monorepo shape:
@@ -159,12 +194,14 @@ Suggested initial monorepo shape:
 ```text
 packages/
   chat-core/
-  chat-server/
+  api-contract/
   api-client/
+  chat-server/
   chat-ui/
   chat-widget/
   chat-standalone/
   agent-runtime/
+  usage-governance/
   tool-execution/
   config-schema/
   tool-sdk/

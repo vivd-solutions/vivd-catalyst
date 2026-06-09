@@ -1,0 +1,83 @@
+import type { FastifyInstance, FastifyReply } from "fastify";
+import type { ChatServerOptions } from "../types";
+
+export function registerBetterAuthRoutes(app: FastifyInstance, options: ChatServerOptions): void {
+  if (!options.standaloneAuth) {
+    return;
+  }
+
+  app.route({
+    method: ["GET", "POST"],
+    url: "/api/auth/*",
+    handler: async (request, reply) => {
+      const response = await options.standaloneAuth!.handleRequest(
+        new Request(toAuthRequestUrl(request.url, options), {
+          method: request.method,
+          headers: toRequestHeaders(request.headers),
+          body: request.method === "GET" ? undefined : toRequestBody(request.body)
+        })
+      );
+      await sendWebResponse(reply, response);
+    }
+  });
+}
+
+export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
+  reply.status(response.status);
+  response.headers.forEach((value, key) => {
+    if (key.toLowerCase() !== "set-cookie") {
+      reply.header(key, value);
+    }
+  });
+
+  const setCookies = getSetCookieHeaders(response.headers);
+  if (setCookies.length > 0) {
+    reply.header("set-cookie", setCookies);
+  }
+
+  const body = Buffer.from(await response.arrayBuffer());
+  reply.send(body);
+}
+
+function toAuthRequestUrl(requestUrl: string, options: ChatServerOptions): string {
+  const origin = new URL(options.standaloneAuth!.baseUrl).origin;
+  return new URL(requestUrl, origin).toString();
+}
+
+function toRequestHeaders(headers: Record<string, string | string[] | undefined>): Headers {
+  const requestHeaders = new Headers();
+  for (const [key, value] of Object.entries(headers)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        requestHeaders.append(key, item);
+      }
+      continue;
+    }
+    if (value !== undefined) {
+      requestHeaders.set(key, value);
+    }
+  }
+  return requestHeaders;
+}
+
+function toRequestBody(body: unknown): BodyInit | undefined {
+  if (body === undefined || body === null) {
+    return undefined;
+  }
+  if (typeof body === "string" || body instanceof URLSearchParams || body instanceof FormData) {
+    return body;
+  }
+  if (Buffer.isBuffer(body)) {
+    return new Uint8Array(body);
+  }
+  return JSON.stringify(body);
+}
+
+function getSetCookieHeaders(headers: Headers): string[] {
+  const getSetCookie = (headers as Headers & { getSetCookie?: () => string[] }).getSetCookie;
+  if (typeof getSetCookie === "function") {
+    return getSetCookie.call(headers);
+  }
+  const header = headers.get("set-cookie");
+  return header ? [header] : [];
+}

@@ -1,0 +1,105 @@
+.acp-rail {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  overflow: hidden;
+  padding: 16px;
+  border-right: 1px solid var(--acp-line);
+  background: var(--acp-page);
+}
+
+.acp-instance {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) auto auto;
+  gap: 10px;
+  align-items: center;
+  min-width: 0;
+}
+
+.acp-instance-text {
+  display: grid;
+  gap: 2px;
+  min-width: 0;
+}
+
+.acp-instance-text strong {
+  font-size: 14px;
+}
+
+.acp-instance-text span {
+  color: var(--acp-muted);
+  font-size: 12px;
+}
+
+.acp-admin-shortcut {
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--acp-muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.acp-admin-shortcut:hover,
+.acp-admin-shortcut-active {
+  border-color: var(--acp-line);
+  color: var(--acp-accent);
+  background: var(--acp-surface);
+}
+
+.acp-new-button {
+  height: 38px;
+  width: 100%;
+  padding: 0;
+}
+
+.acp-conversation-list {
+  display: grid;
+  align-content: start;
+  flex: 1;
+  gap: 6px;
+  min-height: 0;
+  overflow: auto;
+}
+
+.acp-conversation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 34px;
+  align-items: center;
+  min-width: 0;
+  border: 1px solid transparent;
+  border-radius: 8px;
+}
+
+.acp-conversation-selected {
+  border-color: #93c5bd;
+  background: #e5f3ef;
+}
+
+.acp-conversation button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  height: 36px;
+  border: 0;
+  color: var(--acp-ink);
+  background: transparent;
+  cursor: pointer;
+}
+
+.acp-conversation button:first-child {
+  justify-content: flex-start;
+  padding: 0 8px;
+}
+
+.acp-conversation button:last-child {
+  justify-content: center;
+  padding: 0;
+  color: #8a3e2f;
+}

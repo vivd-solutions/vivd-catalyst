@@ -10,13 +10,18 @@ import {
   type ConversationStore,
   type CreateConversationInput,
   type CreateMessageInput,
+  type ModelUsageEvent,
+  type ModelUsageEventInput,
+  type ModelUsageEventStore,
+  type ModelUsageWindowSummary,
   createPlatformId
 } from "@agent-chat-platform/chat-core";
 
-export class InMemoryPlatformStore implements ConversationStore, AuditEventStore {
+export class InMemoryPlatformStore implements ConversationStore, AuditEventStore, ModelUsageEventStore {
   private readonly conversations = new Map<string, Conversation>();
   private readonly messages = new Map<string, ChatMessage[]>();
   private readonly auditEvents: AuditEvent[] = [];
+  private readonly modelUsageEvents: ModelUsageEvent[] = [];
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
     const now = new Date().toISOString();
@@ -145,5 +150,69 @@ export class InMemoryPlatformStore implements ConversationStore, AuditEventStore
       .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
       .slice(0, limit);
   }
+
+  async appendModelUsageEvent(input: ModelUsageEventInput): Promise<ModelUsageEvent> {
+    const event: ModelUsageEvent = {
+      ...input,
+      id: createPlatformId("usage"),
+      createdAt: new Date().toISOString()
+    };
+    this.modelUsageEvents.push(event);
+    return event;
+  }
+
+  async summarizeModelUsageEvents(input: {
+    clientInstanceId: ClientInstanceId;
+    start?: string;
+    end?: string;
+  }): Promise<ModelUsageWindowSummary> {
+    const events = this.modelUsageEvents.filter(
+      (event) =>
+        event.clientInstanceId === input.clientInstanceId &&
+        (!input.start || event.createdAt >= input.start) &&
+        (!input.end || event.createdAt < input.end)
+    );
+    return summarizeEvents(events, input.start, input.end);
+  }
+
+  async listModelUsageEvents(input: {
+    clientInstanceId: ClientInstanceId;
+    start?: string;
+    end?: string;
+    limit?: number;
+  }): Promise<ModelUsageEvent[]> {
+    const events = this.modelUsageEvents
+      .filter(
+        (event) =>
+          event.clientInstanceId === input.clientInstanceId &&
+          (!input.start || event.createdAt >= input.start) &&
+          (!input.end || event.createdAt < input.end)
+      )
+      .sort((left, right) => right.createdAt.localeCompare(left.createdAt))
+    return input.limit === undefined ? events : events.slice(0, input.limit);
+  }
 }
 
+function summarizeEvents(
+  events: ModelUsageEvent[],
+  start: string | undefined,
+  end: string | undefined
+): ModelUsageWindowSummary {
+  return events.reduce<ModelUsageWindowSummary>(
+    (summary, event) => ({
+      ...summary,
+      modelCallCount: summary.modelCallCount + 1,
+      inputTokens: summary.inputTokens + event.inputTokens,
+      outputTokens: summary.outputTokens + event.outputTokens,
+      totalTokens: summary.totalTokens + event.totalTokens
+    }),
+    {
+      start,
+      end,
+      modelCallCount: 0,
+      inputTokens: 0,
+      outputTokens: 0,
+      totalTokens: 0
+    }
+  );
+}

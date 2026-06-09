@@ -1,29 +1,36 @@
-import { defineConfig } from "vitest/config";
+import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
-const packageAlias = (name: string) =>
-  fileURLToPath(new URL(`./packages/${name}/src/index.ts`, import.meta.url));
+const sourceAlias = {
+  "@agent-chat-platform/agent-runtime": "packages/agent-runtime/src/index.ts",
+  "@agent-chat-platform/api-contract": "packages/api-contract/src/index.ts",
+  "@agent-chat-platform/api-client": "packages/api-client/src/index.ts",
+  "@agent-chat-platform/audit": "packages/audit/src/index.ts",
+  "@agent-chat-platform/auth": "packages/auth/src/index.ts",
+  "@agent-chat-platform/chat-core": "packages/chat-core/src/index.ts",
+  "@agent-chat-platform/chat-server": "packages/chat-server/src/index.ts",
+  "@agent-chat-platform/chat-ui": "packages/chat-ui/src/index.tsx",
+  "@agent-chat-platform/chat-widget": "packages/chat-widget/src/index.tsx",
+  "@agent-chat-platform/client-instance": "packages/client-instance/src/index.ts",
+  "@agent-chat-platform/config-schema": "packages/config-schema/src/index.ts",
+  "@agent-chat-platform/memory-store": "packages/memory-store/src/index.ts",
+  "@agent-chat-platform/model-provider": "packages/model-provider/src/index.ts",
+  "@agent-chat-platform/postgres-store": "packages/postgres-store/src/index.ts",
+  "@agent-chat-platform/tool-execution": "packages/tool-execution/src/index.ts",
+  "@agent-chat-platform/tool-sdk": "packages/tool-sdk/src/index.ts",
+  "@agent-chat-platform/usage-governance": "packages/usage-governance/src/index.ts"
+};
+
+const rootDir = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
   resolve: {
-    alias: {
-      "@agent-chat-platform/agent-runtime": packageAlias("agent-runtime"),
-      "@agent-chat-platform/api-client": packageAlias("api-client"),
-      "@agent-chat-platform/audit": packageAlias("audit"),
-      "@agent-chat-platform/auth": packageAlias("auth"),
-      "@agent-chat-platform/chat-core": packageAlias("chat-core"),
-      "@agent-chat-platform/chat-server": packageAlias("chat-server"),
-      "@agent-chat-platform/client-instance": packageAlias("client-instance"),
-      "@agent-chat-platform/config-schema": packageAlias("config-schema"),
-      "@agent-chat-platform/memory-store": packageAlias("memory-store"),
-      "@agent-chat-platform/model-provider": packageAlias("model-provider"),
-      "@agent-chat-platform/postgres-store": packageAlias("postgres-store"),
-      "@agent-chat-platform/tool-execution": packageAlias("tool-execution"),
-      "@agent-chat-platform/tool-sdk": packageAlias("tool-sdk")
-    }
+    alias: Object.fromEntries(
+      Object.entries(sourceAlias).map(([name, path]) => [name, resolve(rootDir, path)])
+    )
   },
   test: {
-    environment: "node",
     include: ["tests/**/*.test.ts"]
   }
 });

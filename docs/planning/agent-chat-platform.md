@@ -40,7 +40,15 @@ Related research:
 - Better Auth is the default library for first-party standalone/control-plane production login when that surface needs admin accounts or sessions.
 - Conversations are persisted, user-scoped, and retention-aware.
 - The standalone surface includes the same chat plus basic control-plane/governance routes.
+- The control plane includes a superadmin panel for usage, audit, and governance metadata.
 - Audit is a minimized governance event layer, not full payload logging.
+- Model usage is tracked as minimized usage events with provider/model/token metadata, not prompt or completion payloads.
+- Usage limits are release-config policy; provider rate limits may still exist separately.
+- Usage governance owns limit checks, cost/usage summaries, and serialized v1 model-call accounting before runtime/provider calls.
+- Schema-first HTTP contracts live in an API contract package; the API client is a consumer/adapter, not the server's source of validation.
+- Conversation routes delegate to a conversation workflow module that owns retention-aware creation/deletion, ownership checks, chat-turn persistence, agent-run observation, and message audit outcomes.
+- Governance actions centralize admin/superadmin role checks and audit sensitive operational reads such as usage and audit-event views.
+- Client assembly validates tool-reference closure at startup, including rejecting enabled approval-required tools until runtime resume is implemented.
 - Governance in v1 means narrow product controls: permissioned admin actions, retention/deletion workflows, audit views, and reason-required sensitive actions.
 - Admin/superadmin views default to metadata, deletion, export/request-handling, audit, and retention status; full message access requires explicit configuration, permission, and audit reason.
 - Vercel AI SDK is the default v1 internal model/tool streaming candidate, behind product-owned runtime contracts.
@@ -52,6 +60,7 @@ Related research:
 - TanStack Query handles frontend server state outside streaming chat.
 - TanStack Router handles standalone/admin routing; the embedded widget stays router-light.
 - Postgres is the baseline application store.
+- Client branding and theme live in release config so each client instance can present customer-specific name, logo, and colors without forking UI code.
 - Docker images package runtime services.
 - Docker Compose is used for local development and is acceptable as the first production target on a VPS/VM.
 - S3-compatible object storage is the default backup target.
