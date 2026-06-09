@@ -1,0 +1,42 @@
+version: 1
+clientInstance:
+  id: demo-e2e
+  displayName: Demo E2E Client Instance
+  environment: development
+auth:
+  development:
+    enabled: true
+    user:
+      id: e2e-user
+      externalUserId: e2e-user
+      displayLabel: E2E User
+      roles:
+        - user
+        - admin
+      permissionRefs:
+        - demo-tools
+      authSource: development
+retention:
+  conversationDays: 1
+  auditDays: 30
+  allowUserDelete: true
+modelProviders:
+  - id: local
+    type: deterministic
+    model: deterministic-local
+defaultAgentName: application_assistant
+agents:
+  - name: application_assistant
+    displayName: Application Assistant
+    modelProviderId: local
+    instructions: |
+      You help users work through sensitive application and document review workflows.
+    toolNames:
+      - document.application_summary
+tools:
+  - name: document.application_summary
+    enabled: true
+ui:
+  title: Agent Chat E2E
+  welcomeMessage: E2E ready.
+  accentColor: "#0f766e"

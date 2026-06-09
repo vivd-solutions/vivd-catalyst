@@ -1,0 +1,37 @@
+{
+  "name": "@agent-chat-platform/client-instance",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "scripts": {
+    "build": "tsup src/index.ts --format esm --dts",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-chat-platform/agent-runtime": "workspace:*",
+    "@agent-chat-platform/audit": "workspace:*",
+    "@agent-chat-platform/auth": "workspace:*",
+    "@agent-chat-platform/chat-core": "workspace:*",
+    "@agent-chat-platform/chat-server": "workspace:*",
+    "@agent-chat-platform/config-schema": "workspace:*",
+    "@agent-chat-platform/memory-store": "workspace:*",
+    "@agent-chat-platform/model-provider": "workspace:*",
+    "@agent-chat-platform/postgres-store": "workspace:*",
+    "@agent-chat-platform/tool-execution": "workspace:*",
+    "@agent-chat-platform/tool-sdk": "workspace:*",
+    "fastify": "^5.8.5"
+  },
+  "devDependencies": {
+    "tsup": "^8.5.1",
+    "typescript": "^6.0.3"
+  }
+}
+

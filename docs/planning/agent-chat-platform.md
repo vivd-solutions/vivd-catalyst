@@ -1,0 +1,75 @@
+# Agent Chat Platform Planning
+
+Date: 2026-06-04
+
+This is the planning index for the reusable AI agent chat platform. Data Chat is a working title; future names might be closer to Agent Chat, Agent Orchestrator, or another product name that better matches the final scope.
+
+The first use case is a sensitive document and payslip workflow embedded into a customer application. The product should become a reusable, code-deployed, self-hostable foundation for future client instances.
+
+## Planning Docs
+
+- [Architecture](./agent-chat-platform/architecture.md)
+- [Extension Model](./agent-chat-platform/extension-model.md)
+- [Frontend, UI, And API Client](./agent-chat-platform/frontend-ui-api.md)
+- [Agent Capabilities](./agent-chat-platform/agent-capabilities.md)
+- [Data, Storage, And Retrieval](./agent-chat-platform/data-storage-retrieval.md)
+- [Infrastructure](./agent-chat-platform/infrastructure.md)
+- [Auth, Security, And Compliance](./agent-chat-platform/auth-security-compliance.md)
+- [Audit And Governance](./agent-chat-platform/audit-governance.md)
+- [Packaging And Repository Strategy](./agent-chat-platform/packaging-repository.md)
+- [Reference Patterns](./agent-chat-platform/reference-patterns.md)
+- [Implementation Guide](./agent-chat-platform/implementation-guide.md)
+- [V1 Scope](./agent-chat-platform/v1-scope.md)
+- [Open Questions](./agent-chat-platform/open-questions.md)
+
+Related research:
+
+- [Open-Source Landscape](../research/open-source-landscape.md)
+
+## Core Decisions So Far
+
+- No managed multi-tenant SaaS. Each customer gets a separate client instance and separate infrastructure.
+- Platform code should be reusable packages imported by client assembly apps.
+- Client assembly apps should be thin customer-specific layers on top of reusable platform packages.
+- Client instances are code-deployed from source-controlled tools, agents, config, and platform package versions.
+- CLI tooling supports validation/build/publish/deploy, not runtime agent/tool registration.
+- TypeScript/Node is the first implementation runtime.
+- Public package, SDK, API, config, persistence, and inter-package contracts use product-owned types.
+- Auth should sit behind an adapter so customer-backed auth is the first adapter, not the only possible auth source.
+- Embedded customer-user auth uses short-lived chat session tokens, not a full login framework.
+- Better Auth is the default library for first-party standalone/control-plane production login when that surface needs admin accounts or sessions.
+- Conversations are persisted, user-scoped, and retention-aware.
+- The standalone surface includes the same chat plus basic control-plane/governance routes.
+- Audit is a minimized governance event layer, not full payload logging.
+- Governance in v1 means narrow product controls: permissioned admin actions, retention/deletion workflows, audit views, and reason-required sensitive actions.
+- Admin/superadmin views default to metadata, deletion, export/request-handling, audit, and retention status; full message access requires explicit configuration, permission, and audit reason.
+- Vercel AI SDK is the default v1 internal model/tool streaming candidate, behind product-owned runtime contracts.
+- Agent capabilities should be explicit tool groups; URL/file fetch and document processing should precede browser automation.
+- V1 preparation for v2 capabilities means interface-only preparation.
+- assistant-ui is the default candidate for shared chat UI primitives/runtime, without Assistant Cloud.
+- The chat backend is a separate Node API service, not a Next.js/full-stack backend.
+- Schema-first HTTP is the core API model, not tRPC.
+- TanStack Query handles frontend server state outside streaming chat.
+- TanStack Router handles standalone/admin routing; the embedded widget stays router-light.
+- Postgres is the baseline application store.
+- Docker images package runtime services.
+- Docker Compose is used for local development and is acceptable as the first production target on a VPS/VM.
+- S3-compatible object storage is the default backup target.
+- Caddy is the default reverse proxy/TLS component for first VPS/Compose deployments.
+- V1 deployment automation should use a deploy script as the source of truth, with GitHub Actions calling it for operated instances.
+- A local publish script should run checks and push a release tag before CI builds images.
+- V1 production deploys should be explicit manual GitHub Actions workflow runs selecting client instance and release/image tag.
+- V1 secrets can live in env files on the VPS, but must not be committed or baked into images.
+- Kubernetes is not v1, but services should stay orchestrator-friendly.
+
+## ADRs
+
+- [0001 Use Dedicated Client Instances Instead Of Managed Multi-Tenant SaaS](../adr/0001-use-dedicated-client-instances.md)
+- [0002 Use Code-Deployed Client Instances With Platform Packages](../adr/0002-use-code-deployed-client-instances-with-platform-packages.md)
+- [0003 Use TypeScript And Node For The First Implementation](../adr/0003-use-typescript-node-for-the-first-implementation.md)
+- [0004 Use Schema-First HTTP Instead Of tRPC As The Core API Model](../adr/0004-use-schema-first-http-instead-of-trpc.md)
+- [0005 Use Postgres As The Baseline Application Store](../adr/0005-use-postgres-as-the-baseline-application-store.md)
+- [0006 Use Product-Owned Types At Public Boundaries](../adr/0006-use-product-owned-types-at-public-boundaries.md)
+- [0008 Use A Separate Node API Service For The Chat Backend](../adr/0008-use-a-separate-node-api-service-for-the-chat-backend.md)
+- [0010 Use Docker Compose On A VPS As The First Production Target](../adr/0010-use-docker-compose-on-a-vps-as-the-first-production-target.md)
+- [0011 Use Auth Adapters And User-Scoped Persisted Conversations](../adr/0011-use-auth-adapters-and-user-scoped-persisted-conversations.md)

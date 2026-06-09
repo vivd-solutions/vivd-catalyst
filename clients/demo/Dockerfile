@@ -1,0 +1,26 @@
+FROM node:23-alpine AS build
+
+WORKDIR /app
+RUN corepack enable
+
+COPY package.json pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
+COPY packages ./packages
+COPY clients/demo ./clients/demo
+
+RUN pnpm install --frozen-lockfile
+RUN pnpm build
+
+FROM node:23-alpine AS runtime
+
+WORKDIR /app
+ENV NODE_ENV=production
+RUN corepack enable
+
+COPY --from=build /app/package.json /app/pnpm-workspace.yaml ./
+COPY --from=build /app/node_modules ./node_modules
+COPY --from=build /app/packages ./packages
+COPY --from=build /app/clients/demo ./clients/demo
+
+EXPOSE 4100
+CMD ["node", "clients/demo/dist/server.js"]
+

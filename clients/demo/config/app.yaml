@@ -1,0 +1,42 @@
+version: 1
+clientInstance:
+  id: demo-local
+  displayName: Demo Client Instance
+  environment: development
+auth:
+  development:
+    enabled: true
+    user:
+      id: demo-user
+      externalUserId: demo-user
+      displayLabel: Development User
+      email: dev@example.test
+      roles:
+        - user
+        - admin
+      permissionRefs:
+        - demo-tools
+      authSource: development
+  sessionToken:
+    issuer: demo-client-instance
+    ttlSeconds: 900
+retention:
+  conversationDays: 30
+  auditDays: 365
+  allowUserDelete: true
+modelProviders:
+  - id: openai
+    type: openai-compatible
+    model: gpt-4.1
+    baseUrl: https://api.openai.com/v1
+    apiKeyEnvName: OPENAI_API_KEY
+defaultAgentName: application_assistant
+agentFiles:
+  - ../agents/application-assistant.agent.yaml
+tools:
+  - name: document.application_summary
+    enabled: true
+ui:
+  title: Agent Chat
+  welcomeMessage: Start a conversation about an application or document review workflow.
+  accentColor: "#0f766e"

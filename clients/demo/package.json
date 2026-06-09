@@ -1,0 +1,35 @@
+{
+  "name": "@agent-chat-platform/demo",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsup src/server.ts --format esm --out-dir dist",
+    "dev": "pnpm --filter './packages/*' build && concurrently -n api,ui -c cyan,green \"pnpm dev:api\" \"pnpm --filter @agent-chat-platform/chat-standalone dev\"",
+    "dev:api": "tsx src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@agent-chat-platform/agent-runtime": "workspace:*",
+    "@agent-chat-platform/audit": "workspace:*",
+    "@agent-chat-platform/auth": "workspace:*",
+    "@agent-chat-platform/chat-core": "workspace:*",
+    "@agent-chat-platform/client-instance": "workspace:*",
+    "@agent-chat-platform/chat-server": "workspace:*",
+    "@agent-chat-platform/config-schema": "workspace:*",
+    "@agent-chat-platform/memory-store": "workspace:*",
+    "@agent-chat-platform/model-provider": "workspace:*",
+    "@agent-chat-platform/postgres-store": "workspace:*",
+    "@agent-chat-platform/tool-execution": "workspace:*",
+    "@agent-chat-platform/tool-sdk": "workspace:*",
+    "dotenv": "^17.4.2",
+    "zod": "^4.4.3"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.3",
+    "tsup": "^8.5.1",
+    "tsx": "^4.22.4",
+    "typescript": "^6.0.3"
+  }
+}
