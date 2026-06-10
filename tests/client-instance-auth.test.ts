@@ -1,0 +1,93 @@
+import { describe, expect, it } from "vitest";
+import { parseClientInstanceConfig } from "@agent-chat-platform/config-schema";
+import { resolveTrustedOrigins } from "../packages/client-assembly/src/auth";
+
+describe("client instance standalone auth trusted origins", () => {
+  it("expands local loopback aliases for development standalone login", () => {
+    const origins = resolveTrustedOrigins({
+      config: createTestConfig({
+        environment: "development",
+        trustedOrigins: ["http://127.0.0.1:5173"]
+      }),
+      env: {
+        CHAT_UI_ORIGIN: "http://localhost:5173/"
+      }
+    });
+
+    expect(origins).toEqual([
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://[::1]:5173"
+    ]);
+  });
+
+  it("does not expand local loopback aliases for production config", () => {
+    const origins = resolveTrustedOrigins({
+      config: createTestConfig({
+        environment: "production",
+        trustedOrigins: ["http://127.0.0.1:5173"]
+      }),
+      env: {}
+    });
+
+    expect(origins).toEqual(["http://127.0.0.1:5173"]);
+  });
+
+  it("rejects development seed passwords in production config", () => {
+    expect(() =>
+      createTestConfig({
+        environment: "production",
+        trustedOrigins: [],
+        seedUsers: [
+          {
+            displayLabel: "Production User",
+            email: "user@example.test",
+            passwordEnvName: "USER_PASSWORD",
+            developmentPassword: "development-password",
+            roles: ["user"],
+            permissionRefs: []
+          }
+        ]
+      })
+    ).toThrow(/developmentPassword in production config/u);
+  });
+});
+
+function createTestConfig(input: {
+  environment: "development" | "production";
+  trustedOrigins: string[];
+  seedUsers?: Array<{
+    displayLabel: string;
+    email: string;
+    passwordEnvName: string;
+    developmentPassword?: string;
+    roles: string[];
+    permissionRefs: string[];
+  }>;
+}) {
+  return parseClientInstanceConfig({
+    version: 1,
+    clientInstance: {
+      id: "demo-local",
+      displayName: "Demo",
+      environment: input.environment
+    },
+    auth: {
+      standalone: {
+        enabled: true,
+        trustedOrigins: input.trustedOrigins,
+        seedUsers: input.seedUsers ?? []
+      }
+    },
+    defaultAgentName: "test_agent",
+    agents: [
+      {
+        name: "test_agent",
+        displayName: "Test Agent",
+        instructions: "Use configured tools only.",
+        modelProviderId: "local"
+      }
+    ],
+    modelProviders: [{ id: "local", type: "deterministic", model: "local" }]
+  });
+}

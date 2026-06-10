@@ -1,19 +1,14 @@
 import { useEffect, useMemo, useRef, type MutableRefObject } from "react";
 import {
   AssistantRuntimeProvider,
-  ComposerPrimitive,
-  MessagePartPrimitive,
-  MessagePrimitive,
-  ThreadPrimitive,
   useComposer,
   useComposerRuntime,
-  useMessage
 } from "@assistant-ui/react";
 import { AssistantChatTransport, useChatRuntime } from "@assistant-ui/react-ai-sdk";
 import type { UIMessage } from "ai";
-import { Bot, CircleAlert, Send, User } from "lucide-react";
 import type { ApiClient, Conversation, Message, SafeConfig } from "@agent-chat-platform/api-client";
-import { currentTitle, firstLineTitle } from "./conversation-title";
+import { AssistantThread } from "./assistant-thread";
+import { firstLineTitle } from "./conversation-title";
 
 export function AssistantChatPanel({
   apiBaseUrl,
@@ -155,73 +150,13 @@ function AssistantRuntimePane({
   return (
     <AssistantRuntimeProvider runtime={runtime}>
       <DraftBridge draftKey={selectedConversationId ?? "new"} draft={draft} onDraftChange={onDraftChange} />
-      <section className="acp-chat" aria-label="Chat">
-        <header className="acp-chat-header">
-          <div>
-            <span>{currentTitle(conversations, selectedConversationId)}</span>
-            <strong>{config?.agents[0]?.displayName ?? "Agent"}</strong>
-          </div>
-          <div className="acp-status">
-            <span />
-            Ready
-          </div>
-        </header>
-
-        <ThreadPrimitive.Root className="acp-assistant-thread">
-          <ThreadPrimitive.Viewport className="acp-messages" autoScroll>
-            {notice ? (
-              <div className="acp-notice">
-                <CircleAlert size={17} aria-hidden="true" />
-                <span>{notice}</span>
-              </div>
-            ) : null}
-            <ThreadPrimitive.Empty>
-              <div className="acp-empty">
-                <Bot size={22} aria-hidden="true" />
-                <p>{config?.ui.welcomeMessage ?? "How can I help?"}</p>
-              </div>
-            </ThreadPrimitive.Empty>
-            <ThreadPrimitive.Messages components={{ Message: AssistantMessage }} />
-            <ThreadPrimitive.ViewportFooter />
-          </ThreadPrimitive.Viewport>
-          <Composer />
-        </ThreadPrimitive.Root>
-      </section>
+      <AssistantThread
+        config={config}
+        conversations={conversations}
+        selectedConversationId={selectedConversationId}
+        notice={notice}
+      />
     </AssistantRuntimeProvider>
-  );
-}
-
-function AssistantMessage() {
-  const role = useMessage((message) => message.role);
-  const isUser = role === "user";
-  return (
-    <MessagePrimitive.Root className={isUser ? "acp-message acp-message-user" : "acp-message acp-message-agent"}>
-      <div className="acp-message-icon">
-        {isUser ? <User size={15} aria-hidden="true" /> : <Bot size={15} aria-hidden="true" />}
-      </div>
-      <div className="acp-message-content">
-        <MessagePrimitive.Parts components={{ Text: TextPart }} />
-      </div>
-    </MessagePrimitive.Root>
-  );
-}
-
-function TextPart() {
-  return (
-    <p>
-      <MessagePartPrimitive.Text />
-    </p>
-  );
-}
-
-function Composer() {
-  return (
-    <ComposerPrimitive.Root className="acp-composer">
-      <ComposerPrimitive.Input placeholder="Message" rows={1} submitMode="enter" />
-      <ComposerPrimitive.Send aria-label="Send message">
-        <Send size={18} aria-hidden="true" />
-      </ComposerPrimitive.Send>
-    </ComposerPrimitive.Root>
   );
 }
 
@@ -261,14 +196,26 @@ function toUiMessages(messages: Message[]): UIMessage[] {
     .map((message) => ({
       id: message.id,
       role: message.role as UIMessage["role"],
-      parts: [
-        {
-          type: "text",
-          text: message.text,
-          state: "done"
-        }
-      ]
+      parts: toUiMessageParts(message)
     }));
+}
+
+function toUiMessageParts(message: Message): UIMessage["parts"] {
+  const parts: UIMessage["parts"] = [
+    {
+      type: "text",
+      text: message.text,
+      state: "done"
+    }
+  ];
+  const domainUi = message.metadata?.domainUi;
+  if (domainUi !== undefined) {
+    parts.push({
+      type: "data-domain-ui",
+      data: domainUi
+    } as UIMessage["parts"][number]);
+  }
+  return parts;
 }
 
 function extractLastUserText(messages: UIMessage[]): string {

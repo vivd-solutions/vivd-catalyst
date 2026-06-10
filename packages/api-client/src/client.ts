@@ -5,18 +5,14 @@ import {
   auditEventSchema,
   conversationSchema,
   createConversationRequestSchema,
-  developmentUsersResponseSchema,
   messageSchema,
   safeConfigSchema,
-  sendMessageRequestSchema,
-  sendMessageResponseSchema,
   usageSummarySchema
 } from "./schemas";
 
 export interface ApiClientOptions {
   baseUrl: string;
   getToken?: () => string | undefined | Promise<string | undefined>;
-  getDevelopmentUserId?: () => string | undefined | Promise<string | undefined>;
   fetchImpl?: typeof fetch;
 }
 
@@ -31,14 +27,12 @@ export function createApiClient(options: ApiClientOptions) {
     body?: unknown
   ): Promise<T> {
     const token = await options.getToken?.();
-    const developmentUserId = await options.getDevelopmentUserId?.();
     const response = await fetchImpl(`${baseUrl}${path}`, {
       method,
       credentials: "include",
       headers: {
         ...(body === undefined ? {} : { "content-type": "application/json" }),
-        ...(token ? { authorization: `Bearer ${token}` } : {}),
-        ...(developmentUserId ? { "x-dev-user-id": developmentUserId } : {})
+        ...(token ? { authorization: `Bearer ${token}` } : {})
       },
       body: body === undefined ? undefined : JSON.stringify(body)
     });
@@ -50,8 +44,6 @@ export function createApiClient(options: ApiClientOptions) {
   }
 
   return {
-    developmentUsers: () =>
-      request("GET", "/auth/development/users", developmentUsersResponseSchema),
     me: () => request("GET", "/api/me", apiUserSchema),
     config: () => request("GET", "/api/config", safeConfigSchema),
     conversations: () => request("GET", "/api/conversations", z.array(conversationSchema)),
@@ -59,13 +51,6 @@ export function createApiClient(options: ApiClientOptions) {
       request("POST", "/api/conversations", conversationSchema, createConversationRequestSchema.parse(input)),
     messages: (conversationId: string) =>
       request("GET", `/api/conversations/${encodeURIComponent(conversationId)}/messages`, z.array(messageSchema)),
-    sendMessage: (conversationId: string, input: z.infer<typeof sendMessageRequestSchema>) =>
-      request(
-        "POST",
-        `/api/conversations/${encodeURIComponent(conversationId)}/messages`,
-        sendMessageResponseSchema,
-        sendMessageRequestSchema.parse(input)
-      ),
     deleteConversation: (conversationId: string) =>
       request("DELETE", `/api/conversations/${encodeURIComponent(conversationId)}`, conversationSchema),
     auditEvents: () => request("GET", "/api/audit-events", z.array(auditEventSchema)),

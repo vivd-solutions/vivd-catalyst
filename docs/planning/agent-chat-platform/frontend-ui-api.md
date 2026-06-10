@@ -5,6 +5,7 @@ The stack should provide both an embeddable chat UI and a standalone surface. Th
 ## UI Stack
 
 - assistant-ui is the default candidate for shared chat UI primitives/runtime.
+- shadcn/ui plus Tailwind is the default component/styling layer for non-assistant UI such as login, navigation, buttons, forms, and control-plane panels.
 - Use assistant-ui only if it remains fully customizable.
 - Do not use Assistant Cloud for auth, persistence, or conversation storage.
 - Keep auth, persistence, audit, and conversation storage in our own backend/Postgres.
@@ -19,6 +20,8 @@ control-plane    settings/governance/admin shell, may live inside chat-standalon
 ```
 
 The shared `chat-ui` package may wrap assistant-ui components/runtime internally, but the product should expose its own UI composition boundary so embedded and standalone chat surfaces are not coupled directly to assistant-ui decisions.
+
+Non-chat primitives should follow shadcn/ui copy-owned component conventions rather than custom local class systems. Customer branding should be applied through shadcn/Tailwind CSS variables, not bespoke component APIs.
 
 ## Standalone Surface And Control Plane
 
@@ -70,9 +73,11 @@ These extension points should be typed product surfaces, such as `DocumentAnalys
 
 Vercel AI SDK is the default v1 internal candidate for model calls, streaming, provider adapters, and tool-call plumbing. It should stay behind product-owned `Agent Runtime`, `Tool Execution`, API, and message contracts.
 
-Current v1 implementation status: the backend persists a user message, runs the agent, collects runtime events, and returns one JSON response after the run completes. Token/message streaming over HTTP and Vercel AI SDK integration are not implemented yet.
+Current v1 implementation status: the backend persists the submitted user message, runs the agent, streams Vercel AI SDK UI message chunks over `/api/chat`, persists assistant messages from runtime completion events, and records minimized run/tool audit metadata. assistant-ui consumes that stream through `@assistant-ui/react-ai-sdk` inside `chat-ui`; API/auth/persistence remain product-owned.
 
-Current chat-ui implementation status: the UI is hand-rolled React. assistant-ui remains the planned shared chat UI/runtime candidate, but it is not installed or used yet.
+Current chat-ui implementation status: the active chat surface wraps assistant-ui primitives behind `AssistantChatPanel` and product-owned components. The first polished assistant-ui pass includes Thread/Viewport, Composer, ActionBar copy, markdown/GFM rendering, syntax-highlighted code blocks, error rendering, suggestion prompts, generic tool-call/data part rendering, a visible stop/cancel action while running, and disabled attachment/edit/regenerate affordances where the backend workflow is not complete yet.
+
+Deferred v1 UI controls: feedback/export and branch picker are intentionally out of scope for the next polish pass. Attachment acquisition/upload, dropzone enablement, message editing, and regeneration should move from disabled affordances to active controls only when the corresponding backend contracts and audit semantics are implemented.
 
 ```text
 assistant-ui

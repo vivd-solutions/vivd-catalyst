@@ -1,7 +1,7 @@
 import { readFile } from "node:fs/promises";
 import { dirname, extname, resolve } from "node:path";
 import yaml from "js-yaml";
-import { AppError } from "@agent-chat-platform/chat-core";
+import { AppError } from "@agent-chat-platform/core";
 import { agentConfigSchema, clientInstanceConfigFileSchema, type ClientInstanceConfig } from "./schemas";
 import { parseClientInstanceConfig } from "./validation";
 

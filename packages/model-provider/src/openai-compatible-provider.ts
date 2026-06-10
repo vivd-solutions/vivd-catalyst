@@ -1,4 +1,4 @@
-import { AppError, type RuntimeCallContext } from "@agent-chat-platform/chat-core";
+import { AppError, type RuntimeCallContext } from "@agent-chat-platform/core";
 import type {
   ModelCompletion,
   ModelCompletionRequest,

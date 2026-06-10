@@ -1,4 +1,4 @@
-import type { JsonObject } from "@agent-chat-platform/chat-core";
+import type { JsonObject } from "@agent-chat-platform/core";
 
 export interface OpenAiCompatibleUsage {
   prompt_tokens: number;

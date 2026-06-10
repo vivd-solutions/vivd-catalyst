@@ -1,4 +1,4 @@
-import type { JsonObject, ModelTokenUsage, RuntimeCallContext } from "@agent-chat-platform/chat-core";
+import type { JsonObject, ModelTokenUsage, RuntimeCallContext } from "@agent-chat-platform/core";
 
 export interface ModelTool {
   name: string;

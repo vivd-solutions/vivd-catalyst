@@ -1,14 +1,22 @@
 import { randomUUID } from "node:crypto";
+import { and, eq } from "drizzle-orm";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import { betterAuth } from "better-auth";
+import { drizzleAdapter } from "better-auth/adapters/drizzle";
 import { hashPassword } from "better-auth/crypto";
 import { fromNodeHeaders } from "better-auth/node";
-import { PostgresDialect } from "kysely";
-import { Pool, type PoolConfig } from "pg";
+import postgres from "postgres";
 import {
   AppError,
   type AuthenticatedUser,
   type ClientInstanceId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
+import {
+  authAccounts,
+  authUsers,
+  standaloneAuthProfiles,
+  standaloneAuthSchema
+} from "./standalone-auth-schema";
 import type { AuthAdapter, AuthRequest } from "./types";
 
 export interface StandaloneAuthSeedUser {
@@ -36,19 +44,9 @@ export interface StandaloneAuthRuntime {
   close(): Promise<void>;
 }
 
-interface AuthUserRow {
-  id: string;
-  email: string;
-  name: string;
-}
-
-interface StandaloneProfileRow {
-  auth_user_id: string;
-  external_user_id: string;
-  display_label: string;
-  roles: string[];
-  permission_refs: string[];
-}
+type StandaloneAuthDatabase = PostgresJsDatabase<typeof standaloneAuthSchema>;
+type AuthUserRow = typeof authUsers.$inferSelect;
+type StandaloneProfileRow = typeof standaloneAuthProfiles.$inferSelect;
 
 interface BetterAuthSessionApi {
   api: {
@@ -67,13 +65,16 @@ interface BetterAuthSessionApi {
 export async function createStandaloneAuthRuntime(
   options: StandaloneAuthOptions
 ): Promise<StandaloneAuthRuntime> {
-  const pool = new Pool({
-    connectionString: options.databaseUrl,
+  const sql = postgres(options.databaseUrl, {
     max: 10
-  } satisfies PoolConfig);
-  const profileStore = new StandaloneAuthProfileStore(pool, options.clientInstanceId);
+  });
+  const db = drizzle(sql, { schema: standaloneAuthSchema });
+  const profileStore = new StandaloneAuthProfileStore(db, options.clientInstanceId);
   const auth = betterAuth({
-    database: new PostgresDialect({ pool }),
+    database: drizzleAdapter(db, {
+      provider: "pg",
+      schema: standaloneAuthSchema
+    }),
     secret: options.secret,
     baseURL: options.baseUrl,
     trustedOrigins: options.trustedOrigins ?? [],
@@ -97,7 +98,7 @@ export async function createStandaloneAuthRuntime(
     baseUrl: options.baseUrl,
     seedUsers,
     async close() {
-      await pool.end();
+      await sql.end();
     }
   };
 }
@@ -124,12 +125,12 @@ class BetterAuthAdapter implements AuthAdapter {
     }
 
     return {
-      id: profile.auth_user_id,
-      externalUserId: profile.external_user_id,
-      displayLabel: profile.display_label,
+      id: profile.authUserId,
+      externalUserId: profile.externalUserId,
+      displayLabel: profile.displayLabel,
       email: session.user.email,
       roles: profile.roles,
-      permissionRefs: profile.permission_refs,
+      permissionRefs: profile.permissionRefs,
       clientInstanceId: request.clientInstanceId,
       authSource: this.id,
       correlationId: request.correlationId
@@ -139,27 +140,22 @@ class BetterAuthAdapter implements AuthAdapter {
 
 class StandaloneAuthProfileStore {
   constructor(
-    private readonly pool: Pool,
+    private readonly db: StandaloneAuthDatabase,
     private readonly clientInstanceId: ClientInstanceId
   ) {}
 
   async getProfile(authUserId: string): Promise<StandaloneProfileRow | undefined> {
-    const { rows } = await this.pool.query<StandaloneProfileRow>(
-      `
-        select
-          auth_user_id,
-          external_user_id,
-          display_label,
-          roles,
-          permission_refs
-        from standalone_auth_profiles
-        where client_instance_id = $1
-          and auth_user_id = $2
-        limit 1
-      `,
-      [this.clientInstanceId, authUserId]
-    );
-    return rows[0];
+    const [row] = await this.db
+      .select()
+      .from(standaloneAuthProfiles)
+      .where(
+        and(
+          eq(standaloneAuthProfiles.clientInstanceId, this.clientInstanceId),
+          eq(standaloneAuthProfiles.authUserId, authUserId)
+        )
+      )
+      .limit(1);
+    return row;
   }
 
   async seedUser(seedUser: StandaloneAuthSeedUser): Promise<void> {
@@ -177,20 +173,25 @@ class StandaloneAuthProfileStore {
 
   private async upsertAuthUser(email: string, displayLabel: string): Promise<AuthUserRow> {
     const now = new Date();
-    const { rows } = await this.pool.query<AuthUserRow>(
-      `
-        insert into "user" (id, name, email, "emailVerified", "createdAt", "updatedAt")
-        values ($1, $2, $3, true, $4, $4)
-        on conflict (email)
-        do update set
-          name = excluded.name,
-          "emailVerified" = true,
-          "updatedAt" = excluded."updatedAt"
-        returning id, email, name
-      `,
-      [createAuthId("usr"), displayLabel, email, now]
-    );
-    const row = rows[0];
+    const [row] = await this.db
+      .insert(authUsers)
+      .values({
+        id: createAuthId("usr"),
+        name: displayLabel,
+        email,
+        emailVerified: true,
+        createdAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: authUsers.email,
+        set: {
+          name: displayLabel,
+          emailVerified: true,
+          updatedAt: now
+        }
+      })
+      .returning();
     if (!row) {
       throw new AppError("INTERNAL", `Failed to seed standalone auth user '${email}'`);
     }
@@ -200,25 +201,24 @@ class StandaloneAuthProfileStore {
   private async upsertCredentialAccount(authUserId: string, password: string): Promise<void> {
     const now = new Date();
     const passwordHash = await hashPassword(password);
-    await this.pool.query(
-      `
-        insert into account (
-          id,
-          "accountId",
-          "providerId",
-          "userId",
-          password,
-          "createdAt",
-          "updatedAt"
-        )
-        values ($1, $2, 'credential', $2, $3, $4, $4)
-        on conflict ("accountId", "providerId")
-        do update set
-          password = excluded.password,
-          "updatedAt" = excluded."updatedAt"
-      `,
-      [createAuthId("acc"), authUserId, passwordHash, now]
-    );
+    await this.db
+      .insert(authAccounts)
+      .values({
+        id: createAuthId("acc"),
+        accountId: authUserId,
+        providerId: "credential",
+        userId: authUserId,
+        password: passwordHash,
+        createdAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: [authAccounts.accountId, authAccounts.providerId],
+        set: {
+          password: passwordHash,
+          updatedAt: now
+        }
+      });
   }
 
   private async upsertProfile(input: {
@@ -229,37 +229,28 @@ class StandaloneAuthProfileStore {
     permissionRefs: string[];
   }): Promise<void> {
     const now = new Date();
-    await this.pool.query(
-      `
-        insert into standalone_auth_profiles (
-          client_instance_id,
-          auth_user_id,
-          external_user_id,
-          display_label,
-          roles,
-          permission_refs,
-          created_at,
-          updated_at
-        )
-        values ($1, $2, $3, $4, $5::jsonb, $6::jsonb, $7, $7)
-        on conflict (client_instance_id, auth_user_id)
-        do update set
-          external_user_id = excluded.external_user_id,
-          display_label = excluded.display_label,
-          roles = excluded.roles,
-          permission_refs = excluded.permission_refs,
-          updated_at = excluded.updated_at
-      `,
-      [
-        this.clientInstanceId,
-        input.authUserId,
-        input.externalUserId,
-        input.displayLabel,
-        JSON.stringify(input.roles),
-        JSON.stringify(input.permissionRefs),
-        now
-      ]
-    );
+    await this.db
+      .insert(standaloneAuthProfiles)
+      .values({
+        clientInstanceId: this.clientInstanceId,
+        authUserId: input.authUserId,
+        externalUserId: input.externalUserId,
+        displayLabel: input.displayLabel,
+        roles: input.roles,
+        permissionRefs: input.permissionRefs,
+        createdAt: now,
+        updatedAt: now
+      })
+      .onConflictDoUpdate({
+        target: [standaloneAuthProfiles.clientInstanceId, standaloneAuthProfiles.authUserId],
+        set: {
+          externalUserId: input.externalUserId,
+          displayLabel: input.displayLabel,
+          roles: input.roles,
+          permissionRefs: input.permissionRefs,
+          updatedAt: now
+        }
+      });
   }
 }
 

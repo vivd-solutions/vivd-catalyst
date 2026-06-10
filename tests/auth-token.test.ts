@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { asClientInstanceId } from "@agent-chat-platform/chat-core";
+import { asClientInstanceId } from "@agent-chat-platform/core";
 import {
   HmacSessionTokenAuthAdapter,
   HmacSessionTokenIssuer

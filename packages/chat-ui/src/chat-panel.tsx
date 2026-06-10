@@ -3,6 +3,9 @@ import { Bot, CircleAlert, Send } from "lucide-react";
 import type { Conversation, Message, SafeConfig } from "@agent-chat-platform/api-client";
 import { currentTitle } from "./conversation-title";
 import { MessageBubble } from "./message-bubble";
+import { Badge } from "./ui/badge";
+import { Button } from "./ui/button";
+import { Textarea } from "./ui/input";
 
 export function ChatPanel({
   config,
@@ -111,28 +114,30 @@ export function ChatPanel({
   }, [onDraftChange]);
 
   return (
-    <section className="acp-chat" aria-label="Chat">
-      <header className="acp-chat-header">
-        <div>
-          <span>{currentTitle(conversations, selectedConversationId)}</span>
-          <strong>{config?.agents[0]?.displayName ?? "Agent"}</strong>
+    <section className="grid min-h-0 min-w-0 grid-rows-[auto_minmax(0,1fr)_auto] overflow-hidden bg-background" aria-label="Chat">
+      <header className="flex min-h-16 min-w-0 items-center justify-between gap-4 border-b px-5 py-3">
+        <div className="grid min-w-0 gap-1">
+          <span className="truncate text-xs text-muted-foreground">
+            {currentTitle(conversations, selectedConversationId)}
+          </span>
+          <strong className="truncate text-sm font-semibold">{config?.agents[0]?.displayName ?? "Agent"}</strong>
         </div>
-        <div className="acp-status">
-          <span />
+        <Badge variant="outline" className="shrink-0 text-muted-foreground">
+          <span className="size-2 rounded-full bg-emerald-600" />
           Ready
-        </div>
+        </Badge>
       </header>
 
-      <div className="acp-messages" aria-live="polite">
+      <div className="grid min-h-0 content-start gap-4 overflow-auto bg-background p-5" aria-live="polite">
         {notice ? (
-          <div className="acp-notice">
+          <div className="inline-flex w-fit max-w-[min(42rem,100%)] items-center gap-2 rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-sm text-amber-900">
             <CircleAlert size={17} aria-hidden="true" />
             <span>{notice}</span>
           </div>
         ) : null}
 
         {messages.length === 0 ? (
-          <div className="acp-empty">
+          <div className="inline-flex w-fit max-w-[min(42rem,100%)] items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
             <Bot size={22} aria-hidden="true" />
             <p>{config?.ui.welcomeMessage ?? "How can I help?"}</p>
           </div>
@@ -141,24 +146,25 @@ export function ChatPanel({
         )}
 
         {sending ? (
-          <div className="acp-pending">
-            <span />
+          <div className="inline-flex w-fit items-center gap-2 rounded-md bg-muted px-3 py-2 text-sm text-muted-foreground">
+            <span className="size-2 rounded-full bg-emerald-600" />
             Thinking
           </div>
         ) : null}
       </div>
 
-      <form ref={composerFormRef} className="acp-composer" onSubmit={onSubmit}>
-        <textarea
+      <form ref={composerFormRef} className="grid grid-cols-[minmax(0,1fr)_2.75rem] gap-2.5 border-t bg-background px-5 py-4" onSubmit={onSubmit}>
+        <Textarea
           ref={composerInputRef}
+          className="max-h-40 min-h-11 resize-none overflow-y-auto py-2.5"
           value={draft}
           onChange={(event) => onDraftChange(event.target.value)}
           placeholder="Message"
           rows={1}
         />
-        <button type="submit" disabled={!draft.trim() || sending} aria-label="Send message">
+        <Button type="submit" size="icon" disabled={!draft.trim() || sending} aria-label="Send message">
           <Send size={18} aria-hidden="true" />
-        </button>
+        </Button>
       </form>
     </section>
   );

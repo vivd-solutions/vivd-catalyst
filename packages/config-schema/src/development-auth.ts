@@ -1,4 +1,4 @@
-import { AppError } from "@agent-chat-platform/chat-core";
+import { AppError } from "@agent-chat-platform/core";
 import type { ClientInstanceConfig, UserIdentityConfig } from "./schemas";
 
 export interface DevelopmentAuthUsers {

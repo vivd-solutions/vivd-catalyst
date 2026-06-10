@@ -1,40 +1,23 @@
 import { createUIMessageStream, createUIMessageStreamResponse, type UIMessage } from "ai";
 import type { FastifyInstance } from "fastify";
-import { z } from "zod";
+import {
+  chatStreamChunkSchema,
+  chatStreamRequestSchema,
+  type ChatStreamChunk,
+  type ChatStreamRequest
+} from "@agent-chat-platform/api-contract";
 import {
   AppError,
   type AgentRunId,
+  type AgentRuntimeEvent,
   type ChatMessage,
   asConversationId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import { ConversationWorkflow } from "../conversation-workflow";
 import { createConversationTitle } from "../conversation-title";
 import { authenticateRequest, parseBody } from "../request-context";
 import type { ChatServerOptions } from "../types";
 import { sendWebResponse } from "./better-auth-routes";
-
-const uiMessagePartSchema = z
-  .object({
-    type: z.string(),
-    text: z.string().optional()
-  })
-  .passthrough();
-
-const uiMessageSchema = z
-  .object({
-    id: z.string(),
-    role: z.enum(["system", "user", "assistant"]),
-    parts: z.array(uiMessagePartSchema)
-  })
-  .passthrough();
-
-const chatStreamRequestSchema = z
-  .object({
-    conversationId: z.string().min(1).optional(),
-    agentName: z.string().min(1).optional(),
-    messages: z.array(uiMessageSchema).min(1)
-  })
-  .passthrough();
 
 export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServerOptions): void {
   const conversations = new ConversationWorkflow(options);
@@ -61,10 +44,38 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
     const responseMessageId = runId;
     const stream = createUIMessageStream<UIMessage>({
       execute: async ({ writer }) => {
-        const textPartId = `${responseMessageId}:text`;
+        let textPartId: string | undefined;
+        let textPartIndex = 0;
         let assistantMessageCount = 0;
 
-        writer.write({
+        function writeChunk(chunk: ChatStreamChunk): void {
+          writer.write(chatStreamChunkSchema.parse(chunk) as Parameters<typeof writer.write>[0]);
+        }
+
+        function ensureTextPart(): string {
+          if (!textPartId) {
+            textPartId = `${responseMessageId}:text:${textPartIndex}`;
+            textPartIndex += 1;
+            writeChunk({
+              type: "text-start",
+              id: textPartId
+            });
+          }
+          return textPartId;
+        }
+
+        function closeTextPart(): void {
+          if (!textPartId) {
+            return;
+          }
+          writeChunk({
+            type: "text-end",
+            id: textPartId
+          });
+          textPartId = undefined;
+        }
+
+        writeChunk({
           type: "start",
           messageId: responseMessageId,
           messageMetadata: {
@@ -72,27 +83,65 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
             runId
           }
         });
-        writer.write({
+        writeChunk({
           type: "start-step"
-        });
-        writer.write({
-          type: "text-start",
-          id: textPartId
         });
 
         for await (const event of conversations.observeRun(runId, context)) {
           if (event.type === "message_delta") {
-            writer.write({
+            const activeTextPartId = ensureTextPart();
+            writeChunk({
               type: "text-delta",
-              id: textPartId,
+              id: activeTextPartId,
               delta: event.delta
+            });
+          }
+
+          if (event.type === "tool_call_started") {
+            closeTextPart();
+            writeChunk({
+              type: "tool-input-available",
+              toolCallId: event.toolCallId,
+              toolName: event.toolName,
+              input: {},
+              dynamic: true,
+              title: event.toolName
+            });
+          }
+
+          if (event.type === "tool_permission_requested") {
+            closeTextPart();
+            writeChunk({
+              type: "tool-approval-request",
+              approvalId: `${event.toolCallId}:approval`,
+              toolCallId: event.toolCallId
+            });
+          }
+
+          if (event.type === "tool_call_completed") {
+            closeTextPart();
+            writeChunk({
+              type: "tool-output-available",
+              toolCallId: event.toolCallId,
+              output: toToolUiOutput(event),
+              dynamic: true
+            });
+          }
+
+          if (event.type === "tool_call_failed") {
+            closeTextPart();
+            writeChunk({
+              type: "tool-output-error",
+              toolCallId: event.toolCallId,
+              errorText: toToolUiError(event),
+              dynamic: true
             });
           }
 
           if (event.type === "message_completed") {
             const assistantMessage = await conversations.persistAssistantMessage(conversationId, event);
             assistantMessageCount += 1;
-            writer.write({
+            writeChunk({
               type: "message-metadata",
               messageMetadata: toAssistantMessageMetadata(conversationId, runId, assistantMessage)
             });
@@ -107,7 +156,7 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
               assistantMessageCount,
               event
             );
-            writer.write({
+            writeChunk({
               type: "error",
               errorText: event.error.message
             });
@@ -125,14 +174,11 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
           }
         }
 
-        writer.write({
-          type: "text-end",
-          id: textPartId
-        });
-        writer.write({
+        closeTextPart();
+        writeChunk({
           type: "finish-step"
         });
-        writer.write({
+        writeChunk({
           type: "finish",
           finishReason: "stop",
           messageMetadata: {
@@ -146,7 +192,7 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
       }
     });
 
-    await sendWebResponse(
+    return sendWebResponse(
       reply,
       createUIMessageStreamResponse({
         stream,
@@ -158,7 +204,7 @@ export function registerChatStreamRoutes(app: FastifyInstance, options: ChatServ
   });
 }
 
-function extractSubmittedUserText(messages: z.infer<typeof chatStreamRequestSchema>["messages"]): string {
+function extractSubmittedUserText(messages: ChatStreamRequest["messages"]): string {
   const userMessage = messages.findLast((message) => message.role === "user");
   const text =
     userMessage?.parts
@@ -183,4 +229,26 @@ function toAssistantMessageMetadata(
     persistedMessageId: message.id,
     createdAt: message.createdAt
   };
+}
+
+function toToolUiOutput(event: Extract<AgentRuntimeEvent, { type: "tool_call_completed" }>): Record<string, unknown> {
+  if (event.result.status === "success") {
+    return {
+      status: "success",
+      summary: event.result.modelSummary,
+      domainUi: event.result.domainUi
+    };
+  }
+
+  return {
+    status: "failed",
+    error: event.result.error
+  };
+}
+
+function toToolUiError(event: Extract<AgentRuntimeEvent, { type: "tool_call_failed" }>): string {
+  if (event.result.status === "failed") {
+    return event.result.error.message;
+  }
+  return "Tool call failed";
 }

@@ -16,12 +16,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-chat-platform/chat-core": "workspace:*",
-    "@agent-chat-platform/config-schema": "workspace:*"
+    "@agent-chat-platform/core": "workspace:*"
   },
   "devDependencies": {
     "tsup": "^8.5.1",
     "typescript": "^6.0.3"
   }
 }
-

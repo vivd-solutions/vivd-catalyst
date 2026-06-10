@@ -1,4 +1,4 @@
-import { AppError, createPlatformId } from "@agent-chat-platform/chat-core";
+import { AppError, createPlatformId } from "@agent-chat-platform/core";
 import type {
   ModelCompletion,
   ModelCompletionRequest,
@@ -51,6 +51,7 @@ export class DeterministicModelProvider implements ModelProvider {
     const completion = await this.complete(request);
     if (completion.toolCalls.length === 0 && completion.text.length > 0) {
       for (const delta of chunkText(completion.text)) {
+        await delay(20);
         yield {
           type: "text_delta",
           delta
@@ -103,4 +104,10 @@ function parseJsonObject(value: string): unknown {
 
 function chunkText(text: string): string[] {
   return text.match(/\S+\s*/gu) ?? [text];
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
 }

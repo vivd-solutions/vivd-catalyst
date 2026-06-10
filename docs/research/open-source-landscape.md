@@ -55,6 +55,11 @@ Sources:
 - https://better-auth.com/docs/plugins
 - https://better-auth.com/docs/plugins/organization
 
+**Drizzle ORM**
+TypeScript-first SQL toolkit for schema-owned, typed query construction across SQL dialects. It is a good fit inside concrete storage adapters because it keeps SQL close to the database schema without forcing ORM entity models into product contracts.
+
+Decision note: use Drizzle inside SQL-backed adapters such as `postgres-store` and standalone auth persistence. Keep Drizzle schema/table/query types private to those adapters; public storage boundaries remain product-owned interfaces.
+
 ## Strong References, Not Immediate Dependencies
 
 **Mastra**  

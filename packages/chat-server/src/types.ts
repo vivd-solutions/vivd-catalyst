@@ -4,8 +4,8 @@ import type {
   AuditEventStore,
   ClientInstanceId,
   ConversationStore
-} from "@agent-chat-platform/chat-core";
-import type { AuditRecorder } from "@agent-chat-platform/audit";
+} from "@agent-chat-platform/core";
+import type { AuditRecorder } from "@agent-chat-platform/core";
 import type { AuthAdapter } from "@agent-chat-platform/auth";
 import type { ClientInstanceConfig } from "@agent-chat-platform/config-schema";
 import type { ModelUsageGovernance } from "@agent-chat-platform/usage-governance";

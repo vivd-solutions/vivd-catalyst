@@ -38,7 +38,7 @@ The exact customer token can stay small and customer-specific. The platform shou
 
 V1 auth adapters:
 
-- **Development auth adapter**: local-only configured users for standalone development and role testing.
+- **Development auth adapter**: test/local-only configured users for adapter and authorization tests. It must not expose a user-listing HTTP route or become the primary standalone development login path.
 - **Customer-backed token adapter**: production adapter for embedded chat where the customer's application is the login authority.
 
 Future auth adapters may support OIDC, customer-signed JWTs, SAML-backed gateways, or other customer identity patterns without changing the rest of the chat runtime.
@@ -61,15 +61,20 @@ Implementation rules:
 - Keep Better Auth schema/migrations explicit in the normal application migration flow.
 - Do not use Better Auth's organization/multi-tenant concepts to reintroduce managed multi-tenant SaaS assumptions.
 
-The auth model has two initial paths:
+The auth model has three initial paths:
 
 1. **Development/local auth**
-   - Used by the standalone chat UI during local development.
+   - Used by low-level tests and local adapter debugging only.
    - Provides configured mock/dev users without depending on the customer's application.
-   - Should support switching between representative roles, such as a normal user and a superadmin, through dev-only configuration and request headers.
    - Must be disabled or explicitly guarded in production.
 
-2. **Customer-backed session token**
+2. **Standalone/control-plane login**
+   - Used by the standalone chat UI during local development and standalone deployments.
+   - Uses Better Auth email/password sessions in the same production-shaped path.
+   - Local development creates representative users, such as a normal user and a superadmin, by seeding the auth database from release config or an explicit CLI.
+   - Development seed credentials must be replaced or disabled in production.
+
+3. **Customer-backed session token**
    - Used by embedded production chat.
    - The customer application remains the source of truth for login.
    - The widget asks the customer backend for a short-lived chat session token.

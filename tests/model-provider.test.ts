@@ -1,6 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { asClientInstanceId } from "@agent-chat-platform/chat-core";
+import { asClientInstanceId } from "@agent-chat-platform/core";
 import {
+  DeterministicModelProvider,
+  ModelProviderRegistry,
   OpenAiCompatibleChatProvider,
   type ModelCompletionStreamEvent
 } from "@agent-chat-platform/model-provider";
@@ -186,6 +188,39 @@ describe("OpenAI-compatible model provider", () => {
         source: "provider_reported"
       }
     });
+  });
+
+  it("delegates streaming through the provider registry", async () => {
+    const clientInstanceId = asClientInstanceId("client-test");
+    const registry = new ModelProviderRegistry([new DeterministicModelProvider("local")]);
+
+    const events: ModelCompletionStreamEvent[] = [];
+    for await (const event of registry.stream(
+      {
+        providerId: "local",
+        model: "deterministic-local",
+        messages: [{ role: "user", content: "hello" }],
+        tools: []
+      },
+      {
+        clientInstanceId,
+        correlationId: "corr-test",
+        user: {
+          id: "user-test",
+          externalUserId: "user-test",
+          displayLabel: "User",
+          roles: ["user"],
+          permissionRefs: [],
+          clientInstanceId,
+          authSource: "test"
+        }
+      }
+    )) {
+      events.push(event);
+    }
+
+    expect(events.some((event) => event.type === "text_delta")).toBe(true);
+    expect(events.at(-1)?.type).toBe("completed");
   });
 });
 

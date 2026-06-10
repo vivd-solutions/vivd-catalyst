@@ -1,4 +1,4 @@
-import { AppError, type ModelTokenUsage } from "@agent-chat-platform/chat-core";
+import { AppError, type ModelTokenUsage } from "@agent-chat-platform/core";
 import type { ModelMessage, ModelTool } from "./types";
 import type {
   OpenAiCompatibleMessage,

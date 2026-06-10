@@ -1,21 +1,20 @@
 import {
   AppError,
+  type AgentConfig,
   type AgentRunHandle,
   type AgentRunId,
   type AgentRuntime,
   type AgentRuntimeCommand,
   type AgentRuntimeEvent,
+  type ChatMessage,
+  type ConversationHistoryReader,
+  type ModelProviderConfig,
   type RuntimeCallContext,
   type StartAgentRunInput,
   type ToolExecution,
   asAgentRunId,
   createPlatformId
-} from "@agent-chat-platform/chat-core";
-import {
-  type ClientInstanceConfig,
-  getAgentConfig,
-  getModelProviderForAgent
-} from "@agent-chat-platform/config-schema";
+} from "@agent-chat-platform/core";
 import type { ModelCompletion, ModelMessage, ModelProvider } from "@agent-chat-platform/model-provider";
 import type { ToolRegistry } from "@agent-chat-platform/tool-execution";
 import type { ModelUsageGovernance } from "@agent-chat-platform/usage-governance";
@@ -25,12 +24,18 @@ import { executeToolCall } from "./tool-call-execution";
 import { recordModelUsage } from "./usage-recording";
 
 export interface LocalAgentRuntimeOptions {
-  config: ClientInstanceConfig;
+  agents: AgentConfig[];
+  modelProviders: ModelProviderConfig[];
+  defaultModelProvider: ModelProviderConfig;
+  conversationHistory: ConversationHistoryReader;
   modelProvider: ModelProvider;
   toolRegistry: ToolRegistry;
   toolExecution: ToolExecution;
   usageGovernance: ModelUsageGovernance;
+  historyMessageLimit?: number;
 }
+
+const DEFAULT_CONVERSATION_HISTORY_LIMIT = 20;
 
 export class LocalAgentRuntime implements AgentRuntime {
   private readonly options: LocalAgentRuntimeOptions;
@@ -93,16 +98,19 @@ export class LocalAgentRuntime implements AgentRuntime {
     context: RuntimeCallContext
   ): Promise<void> {
     const state = this.getRun(runId);
-    const agent = getAgentConfig(this.options.config, input.agentName);
-    const provider = getModelProviderForAgent(this.options.config, agent);
+    const agent = this.getAgentConfig(input.agentName);
+    const provider = this.getModelProviderForAgent(agent);
     const tools = this.options.toolRegistry.listDescriptorsForAgent(agent.toolNames);
+    const historyMessages = await this.loadModelHistory(input, context);
     const messages: ModelMessage[] = [
       { role: "system", content: createSystemInstructions(agent.instructions, tools.length) },
+      ...historyMessages,
       { role: "user", content: input.message.text }
     ];
 
+    let emittedAssistantText = "";
+
     for (let round = 0; round < 4; round += 1) {
-      const streamedText = shouldStreamText(requestMessagesHaveToolResult(messages), tools.length);
       const { completion, emittedDeltas } = await this.options.usageGovernance.runModelCall(
         context.clientInstanceId,
         async () => {
@@ -115,7 +123,7 @@ export class LocalAgentRuntime implements AgentRuntime {
             },
             context,
             state,
-            streamedText
+            true
           );
           await recordModelUsage({
             usageStore: this.options.usageGovernance,
@@ -131,13 +139,18 @@ export class LocalAgentRuntime implements AgentRuntime {
 
       if (completion.toolCalls.length === 0) {
         const assistantText = completion.text || "I completed the request.";
+        const visibleAssistantText = `${emittedAssistantText}${assistantText}`;
         if (emittedDeltas) {
-          state.completeMessage(assistantText);
+          state.completeMessage(visibleAssistantText);
         } else {
-          state.message(assistantText);
+          state.message(visibleAssistantText);
         }
         state.complete();
         return;
+      }
+
+      if (emittedDeltas) {
+        emittedAssistantText += completion.text;
       }
 
       messages.push({
@@ -172,6 +185,37 @@ export class LocalAgentRuntime implements AgentRuntime {
       throw new AppError("NOT_FOUND", `Agent run '${runId}' was not found`);
     }
     return state;
+  }
+
+  private getAgentConfig(agentName: string): AgentConfig {
+    const agent = this.options.agents.find((candidate) => candidate.name === agentName);
+    if (!agent) {
+      throw new AppError("NOT_FOUND", `Agent '${agentName}' is not defined`);
+    }
+    return agent;
+  }
+
+  private getModelProviderForAgent(agent: AgentConfig): ModelProviderConfig {
+    const providerId = agent.modelProviderId ?? this.options.defaultModelProvider.id;
+    const provider = this.options.modelProviders.find((candidate) => candidate.id === providerId);
+    if (!provider) {
+      throw new AppError("NOT_FOUND", `Model provider '${providerId}' is not defined`);
+    }
+    return provider;
+  }
+
+  private async loadModelHistory(
+    input: StartAgentRunInput,
+    context: RuntimeCallContext
+  ): Promise<ModelMessage[]> {
+    const recentMessages = await this.options.conversationHistory.listRecentMessages({
+      clientInstanceId: context.clientInstanceId,
+      conversationId: input.conversationId,
+      limit: this.options.historyMessageLimit ?? DEFAULT_CONVERSATION_HISTORY_LIMIT
+    });
+    return dropCurrentSubmittedMessage(recentMessages, input.message.text)
+      .map(toModelHistoryMessage)
+      .filter((message): message is ModelMessage => message !== undefined);
   }
 
   private async completeWithProvider(
@@ -215,14 +259,24 @@ export class LocalAgentRuntime implements AgentRuntime {
   }
 }
 
-function requestMessagesHaveToolResult(messages: ModelMessage[]): boolean {
-  return messages.some((message) => message.role === "tool");
-}
-
-function shouldStreamText(hasToolResult: boolean, toolCount: number): boolean {
-  return hasToolResult || toolCount === 0;
-}
-
 export function asRuntimeRunId(value: string): AgentRunId {
   return asAgentRunId(value);
+}
+
+function dropCurrentSubmittedMessage(messages: ChatMessage[], text: string): ChatMessage[] {
+  const lastMessage = messages.at(-1);
+  if (lastMessage?.role === "user" && lastMessage.text === text) {
+    return messages.slice(0, -1);
+  }
+  return messages;
+}
+
+function toModelHistoryMessage(message: ChatMessage): ModelMessage | undefined {
+  if (message.role === "user" || message.role === "assistant") {
+    return {
+      role: message.role,
+      content: message.text
+    };
+  }
+  return undefined;
 }

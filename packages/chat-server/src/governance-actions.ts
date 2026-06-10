@@ -1,5 +1,5 @@
-import { auditActorFromUser } from "@agent-chat-platform/audit";
-import { AppError, type AuthenticatedUser, type RuntimeCallContext } from "@agent-chat-platform/chat-core";
+import { auditActorFromUser } from "@agent-chat-platform/core";
+import { AppError, type AuthenticatedUser, type RuntimeCallContext } from "@agent-chat-platform/core";
 import type { ChatServerOptions } from "./types";
 
 type GovernanceRoleRequirement = "admin" | "superadmin";

@@ -1,5 +1,10 @@
-import { AppError, type RuntimeCallContext } from "@agent-chat-platform/chat-core";
-import type { ModelCompletion, ModelCompletionRequest, ModelProvider } from "./types";
+import { AppError, type RuntimeCallContext } from "@agent-chat-platform/core";
+import type {
+  ModelCompletion,
+  ModelCompletionRequest,
+  ModelCompletionStreamEvent,
+  ModelProvider
+} from "./types";
 
 export class ModelProviderRegistry implements ModelProvider {
   readonly id = "registry";
@@ -15,10 +20,31 @@ export class ModelProviderRegistry implements ModelProvider {
     request: ModelCompletionRequest,
     context: RuntimeCallContext
   ): Promise<ModelCompletion> {
-    const provider = this.providers.get(request.providerId);
-    if (!provider) {
-      throw new AppError("NOT_FOUND", `Model provider '${request.providerId}' is not registered`);
-    }
+    const provider = this.getProvider(request.providerId);
     return provider.complete(request, context);
+  }
+
+  async *stream(
+    request: ModelCompletionRequest,
+    context: RuntimeCallContext
+  ): AsyncIterable<ModelCompletionStreamEvent> {
+    const provider = this.getProvider(request.providerId);
+    if (!provider.stream) {
+      yield {
+        type: "completed",
+        completion: await provider.complete(request, context)
+      };
+      return;
+    }
+
+    yield* provider.stream(request, context);
+  }
+
+  private getProvider(providerId: string): ModelProvider {
+    const provider = this.providers.get(providerId);
+    if (!provider) {
+      throw new AppError("NOT_FOUND", `Model provider '${providerId}' is not registered`);
+    }
+    return provider;
   }
 }

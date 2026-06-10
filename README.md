@@ -19,6 +19,23 @@ pnpm dev
 
 Paste an OpenAI API key into `.env` before using the default demo config. The demo API listens on `http://127.0.0.1:4100` and the standalone chat UI listens on `http://127.0.0.1:5173`.
 
+`pnpm dev` runs the demo client stack:
+
+- `clients/demo` starts Postgres with `docker compose up -d postgres`.
+- Workspace packages are built once so local package exports resolve from `dist/`.
+- The API starts from `clients/demo/src/server.ts`.
+- The standalone UI starts with Vite from `packages/chat-standalone`.
+- API startup runs idempotent migrations when `RUN_MIGRATIONS` is not `false`.
+- Standalone Better Auth users from `clients/demo/config/app.yaml` are seeded into Postgres on startup.
+- You can seed those users explicitly with `pnpm --filter @agent-chat-platform/demo seed:auth`.
+
+Default standalone login users:
+
+- `superadmin@example.test` / `demo-superadmin-password`
+- `user@example.test` / `demo-user-password`
+
+If `DEMO_SUPERADMIN_PASSWORD` or `DEMO_USER_PASSWORD` is set in `.env`, use those values instead.
+
 Useful checks:
 
 ```bash
@@ -32,3 +49,5 @@ pnpm test:e2e
 `pnpm test:e2e` uses a deterministic fixture config so it does not require an OpenAI key.
 
 The deterministic model provider is kept for local tests and repeatable debugging. The demo client config uses OpenAI by default and lets the model call registered tools automatically.
+
+Storage code uses product-owned store interfaces at package boundaries. The Postgres-backed adapters use Drizzle internally for typed database interactions; Drizzle table/query types should not leak into public platform APIs.

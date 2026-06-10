@@ -1,4 +1,4 @@
-import { AppError, type ToolDescriptor } from "@agent-chat-platform/chat-core";
+import { AppError, type ToolDescriptor } from "@agent-chat-platform/core";
 import type { AnyToolDefinition } from "@agent-chat-platform/tool-sdk";
 
 export interface ToolRegistryOptions {

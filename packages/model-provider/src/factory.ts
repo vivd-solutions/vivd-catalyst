@@ -1,5 +1,4 @@
-import { AppError } from "@agent-chat-platform/chat-core";
-import type { ModelProviderConfig } from "@agent-chat-platform/config-schema";
+import { AppError, type ModelProviderConfig } from "@agent-chat-platform/core";
 import { DeterministicModelProvider } from "./deterministic-provider";
 import { OpenAiCompatibleChatProvider } from "./openai-compatible-provider";
 import { ModelProviderRegistry } from "./registry";

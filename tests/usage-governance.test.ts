@@ -3,12 +3,12 @@ import {
   asAgentRunId,
   asClientInstanceId,
   asConversationId
-} from "@agent-chat-platform/chat-core";
-import { InMemoryPlatformStore } from "@agent-chat-platform/memory-store";
+} from "@agent-chat-platform/core";
+import { InMemoryPlatformStore } from "@agent-chat-platform/core/testing";
 import { ModelUsageGovernance } from "@agent-chat-platform/usage-governance";
 
 describe("model usage governance", () => {
-  it("serializes model calls so daily call limits cannot be raced in one process", async () => {
+  it("reserves model calls so daily call limits cannot be raced in one process", async () => {
     const clientInstanceId = asClientInstanceId("client-usage-test");
     const store = new InMemoryPlatformStore();
     const governance = new ModelUsageGovernance({
@@ -69,6 +69,55 @@ describe("model usage governance", () => {
     });
   });
 
+  it("does not hold the accounting lock across provider latency", async () => {
+    const clientInstanceId = asClientInstanceId("client-overlap-test");
+    const store = new InMemoryPlatformStore();
+    const governance = new ModelUsageGovernance({
+      store,
+      limits: {}
+    });
+    let activeCalls = 0;
+    let maxActiveCalls = 0;
+
+    await Promise.all([
+      governance.runModelCall(clientInstanceId, async () => {
+        activeCalls += 1;
+        maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+        await delay(30);
+        activeCalls -= 1;
+        return "first";
+      }),
+      governance.runModelCall(clientInstanceId, async () => {
+        activeCalls += 1;
+        maxActiveCalls = Math.max(maxActiveCalls, activeCalls);
+        await delay(30);
+        activeCalls -= 1;
+        return "second";
+      })
+    ]);
+
+    expect(maxActiveCalls).toBe(2);
+  });
+
+  it("releases in-flight reservations when a provider call fails", async () => {
+    const clientInstanceId = asClientInstanceId("client-failure-release-test");
+    const store = new InMemoryPlatformStore();
+    const governance = new ModelUsageGovernance({
+      store,
+      limits: {
+        modelCallsPerDay: 1
+      }
+    });
+
+    await expect(
+      governance.runModelCall(clientInstanceId, async () => {
+        throw new Error("provider failed");
+      })
+    ).rejects.toThrow("provider failed");
+
+    await expect(governance.runModelCall(clientInstanceId, async () => "next")).resolves.toBe("next");
+  });
+
   it("derives model costs from configured provider and model pricing", async () => {
     const clientInstanceId = asClientInstanceId("client-cost-test");
     const store = new InMemoryPlatformStore();
@@ -119,3 +168,9 @@ describe("model usage governance", () => {
     });
   });
 });
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    setTimeout(resolve, ms);
+  });
+}

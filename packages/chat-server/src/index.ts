@@ -21,7 +21,7 @@ export async function createChatServer(options: ChatServerOptions): Promise<Fast
     origin: options.corsOrigin ?? true,
     methods: ["GET", "POST", "DELETE", "OPTIONS"],
     credentials: true,
-    allowedHeaders: ["authorization", "content-type", "x-correlation-id", "x-dev-user-id", "x-server-credential"]
+    allowedHeaders: ["authorization", "content-type", "x-correlation-id", "x-server-credential"]
   });
 
   installErrorHandler(app);

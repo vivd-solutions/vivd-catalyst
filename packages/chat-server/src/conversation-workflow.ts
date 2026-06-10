@@ -1,7 +1,6 @@
-import { auditActorFromUser } from "@agent-chat-platform/audit";
+import { auditActorFromUser } from "@agent-chat-platform/core";
 import {
   AppError,
-  type AppErrorCode,
   type AgentRunId,
   type AgentRuntimeEvent,
   type AuthenticatedUser,
@@ -10,7 +9,7 @@ import {
   type ConversationId,
   type RuntimeCallContext,
   addDays
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import type { ChatServerOptions } from "./types";
 
 export interface CreateConversationCommand {
@@ -20,12 +19,6 @@ export interface CreateConversationCommand {
 export interface SendConversationMessageCommand {
   agentName?: string;
   text: string;
-}
-
-export interface SendConversationMessageResult {
-  userMessage: ChatMessage;
-  assistantMessages: ChatMessage[];
-  events: AgentRuntimeEvent[];
 }
 
 export interface StartedConversationMessageRun {
@@ -82,28 +75,6 @@ export class ConversationWorkflow {
       clientInstanceId: this.options.clientInstanceId,
       conversationId
     });
-  }
-
-  async sendMessage(
-    conversationId: ConversationId,
-    user: AuthenticatedUser,
-    context: RuntimeCallContext,
-    command: SendConversationMessageCommand
-  ): Promise<SendConversationMessageResult> {
-    const { userMessage, runId } = await this.startMessageRun(conversationId, user, context, command);
-    const result = await this.collectAgentRun(conversationId, runId, context);
-    if (result.runFailure) {
-      await this.recordRunFailed(conversationId, user, context, runId, result.assistantMessages.length, result.runFailure);
-      throw appErrorFromRunFailure(result.runFailure);
-    }
-
-    await this.recordRunCompleted(conversationId, user, context, runId, result.assistantMessages.length);
-
-    return {
-      userMessage,
-      assistantMessages: result.assistantMessages,
-      events: result.events
-    };
   }
 
   async startMessageRun(
@@ -248,53 +219,4 @@ export class ConversationWorkflow {
     return conversation;
   }
 
-  private async collectAgentRun(
-    conversationId: ConversationId,
-    runId: AgentRunId,
-    context: RuntimeCallContext
-  ): Promise<{
-    assistantMessages: ChatMessage[];
-    events: AgentRuntimeEvent[];
-    runFailure?: Extract<AgentRuntimeEvent, { type: "run_failed" }>;
-  }> {
-    const assistantMessages: ChatMessage[] = [];
-    const events: AgentRuntimeEvent[] = [];
-    let runFailure: Extract<AgentRuntimeEvent, { type: "run_failed" }> | undefined;
-
-    for await (const event of this.options.agentRuntime.observe(runId, context)) {
-      events.push(event);
-      if (event.type === "run_failed") {
-        runFailure = event;
-      }
-      if (event.type === "message_completed") {
-        assistantMessages.push(await this.persistAssistantMessage(conversationId, event));
-      }
-    }
-
-    return {
-      assistantMessages,
-      events,
-      runFailure
-    };
-  }
-}
-
-const appErrorCodes = new Set<AppErrorCode>([
-  "BAD_REQUEST",
-  "UNAUTHENTICATED",
-  "FORBIDDEN",
-  "NOT_FOUND",
-  "CONFLICT",
-  "TIMEOUT",
-  "VALIDATION_FAILED",
-  "INTERNAL"
-]);
-
-function appErrorFromRunFailure(
-  event: Extract<AgentRuntimeEvent, { type: "run_failed" }>
-): AppError {
-  const code = appErrorCodes.has(event.error.code as AppErrorCode)
-    ? (event.error.code as AppErrorCode)
-    : "INTERNAL";
-  return new AppError(code, event.error.message);
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { createClientInstanceApp } from "@agent-chat-platform/client-instance";
+import { createClientInstanceApp } from "@agent-chat-platform/client-assembly";
 import { parseClientInstanceConfig, type UsageLimitsConfig } from "@agent-chat-platform/config-schema";
 import { defineTool, toolSuccess } from "@agent-chat-platform/tool-sdk";
 
@@ -22,6 +22,7 @@ describe("client instance app vertical slice", () => {
     const app = await createClientInstanceApp({
       config,
       env: {},
+      storeMode: "memory",
       tools: [tool]
     });
 
@@ -35,17 +36,23 @@ describe("client instance app vertical slice", () => {
 
     const sent = await app.server.inject({
       method: "POST",
-      url: `/api/conversations/${conversation.id}/messages`,
+      url: "/api/chat",
       payload: {
-        text: '/tool demo.echo {"text":"hello"}'
+        conversationId: conversation.id,
+        messages: [createUserUiMessage('/tool demo.echo {"text":"hello"}')]
       }
     });
 
     expect(sent.statusCode).toBe(200);
-    const response = sent.json() as { assistantMessages: Array<{ text: string }> };
-    expect(response.assistantMessages.map((message) => message.text).join("\n")).toContain(
-      "Echoed hello"
-    );
+    expect(parseSseChunks(sent.payload).some((chunk) => chunk.type === "finish")).toBe(true);
+
+    const messages = await app.server.inject({
+      method: "GET",
+      url: `/api/conversations/${conversation.id}/messages`
+    });
+    expect(messages.statusCode).toBe(200);
+    const persistedMessages = messages.json() as Array<{ role: string; text: string }>;
+    expect(persistedMessages.map((message) => message.text).join("\n")).toContain("Echoed hello");
 
     const audit = await app.server.inject({
       method: "GET",
@@ -82,6 +89,7 @@ describe("client instance app vertical slice", () => {
         }
       }),
       env: {},
+      storeMode: "memory",
       tools: []
     });
 
@@ -95,25 +103,29 @@ describe("client instance app vertical slice", () => {
 
     const firstMessage = await app.server.inject({
       method: "POST",
-      url: `/api/conversations/${conversation.id}/messages`,
+      url: "/api/chat",
       payload: {
-        text: "hello"
+        conversationId: conversation.id,
+        messages: [createUserUiMessage("hello")]
       }
     });
     expect(firstMessage.statusCode).toBe(200);
 
     const secondMessage = await app.server.inject({
       method: "POST",
-      url: `/api/conversations/${conversation.id}/messages`,
+      url: "/api/chat",
       payload: {
-        text: "hello again"
+        conversationId: conversation.id,
+        messages: [createUserUiMessage("hello again")]
       }
     });
-    expect(secondMessage.statusCode).toBe(403);
-    expect((secondMessage.json() as { error: { code: string; message: string } }).error).toMatchObject({
-      code: "FORBIDDEN",
-      message: "Daily model call usage limit has been reached"
-    });
+    expect(secondMessage.statusCode).toBe(200);
+    expect(parseSseChunks(secondMessage.payload)).toContainEqual(
+      expect.objectContaining({
+        type: "error",
+        errorText: "Daily model call usage limit has been reached"
+      })
+    );
 
     const audit = await app.server.inject({
       method: "GET",
@@ -127,7 +139,7 @@ describe("client instance app vertical slice", () => {
     await app.close();
   });
 
-  it("switches between configured development users per request", async () => {
+  it("switches between configured development users without exposing a dev-user listing route", async () => {
     const app = await createClientInstanceApp({
       config: createTestConfig({
         developmentAuth: {
@@ -152,18 +164,15 @@ describe("client instance app vertical slice", () => {
         }
       }),
       env: {},
+      storeMode: "memory",
       tools: []
     });
 
-    const developmentUsers = await app.server.inject({
+    const developmentUsersRoute = await app.server.inject({
       method: "GET",
       url: "/auth/development/users"
     });
-    expect(developmentUsers.statusCode).toBe(200);
-    expect(developmentUsers.json()).toMatchObject({
-      defaultUserId: "superadmin-1",
-      users: [{ id: "superadmin-1" }, { id: "user-1" }]
-    });
+    expect(developmentUsersRoute.statusCode).toBe(404);
 
     const defaultMe = await app.server.inject({
       method: "GET",
@@ -217,11 +226,26 @@ describe("client instance app vertical slice", () => {
           toolNames: ["demo.echo"]
         }),
         env: {},
+        storeMode: "memory",
         tools: []
       })
     ).rejects.toMatchObject({
       code: "VALIDATION_FAILED",
       message: "Client instance assembly is invalid"
+    });
+  });
+
+  it("rejects startup without DATABASE_URL unless memory mode is explicit", async () => {
+    await expect(
+      createClientInstanceApp({
+        config: createTestConfig(),
+        env: {},
+        tools: []
+      })
+    ).rejects.toMatchObject({
+      code: "VALIDATION_FAILED",
+      message:
+        "DATABASE_URL is required for the platform store; set STORE=memory only for explicit local/test memory mode"
     });
   });
 
@@ -246,6 +270,7 @@ describe("client instance app vertical slice", () => {
           toolNames: ["demo.approval"]
         }),
         env: {},
+        storeMode: "memory",
         tools: [approvalTool]
       })
     ).rejects.toMatchObject({
@@ -296,4 +321,26 @@ function createTestConfig(input: {
     },
     tools: input.tools ?? []
   });
+}
+
+function createUserUiMessage(text: string) {
+  return {
+    id: `user-${Math.random().toString(36).slice(2)}`,
+    role: "user",
+    parts: [
+      {
+        type: "text",
+        text
+      }
+    ]
+  };
+}
+
+function parseSseChunks(text: string): Array<{ type?: string; errorText?: string }> {
+  return text
+    .split("\n")
+    .filter((line) => line.startsWith("data:"))
+    .map((line) => line.slice("data:".length).trim())
+    .filter((line) => line !== "[DONE]")
+    .map((line) => JSON.parse(line) as { type?: string; errorText?: string });
 }

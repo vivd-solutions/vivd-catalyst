@@ -12,8 +12,8 @@ export function LoginPanel({
   apiBaseUrl: string;
   onSignedIn: () => void;
 }) {
-  const [email, setEmail] = useState("user@example.test");
-  const [password, setPassword] = useState("demo-user-password");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | undefined>();
   const [pending, setPending] = useState(false);
 
@@ -35,17 +35,20 @@ export function LoginPanel({
   }
 
   return (
-    <main className="acp-auth-shell" aria-label="Sign in">
-      <Card className="acp-auth-card">
-        <CardHeader>
-          <div className="acp-auth-mark">
+    <main
+      className="grid h-dvh w-full place-items-center overflow-hidden bg-sidebar p-5 text-foreground"
+      aria-label="Sign in"
+    >
+      <Card className="w-full max-w-[380px]">
+        <CardHeader className="gap-4">
+          <div className="grid size-11 place-items-center rounded-lg border bg-card text-primary">
             <ShieldCheck size={22} aria-hidden="true" />
           </div>
           <CardTitle>Sign in</CardTitle>
         </CardHeader>
         <CardContent>
-          <form className="acp-auth-form" onSubmit={onSubmit}>
-            <label>
+          <form className="grid gap-4" onSubmit={onSubmit}>
+            <label className="grid gap-1.5 text-sm font-medium">
               <span>Email</span>
               <Input
                 autoComplete="email"
@@ -54,7 +57,7 @@ export function LoginPanel({
                 onChange={(event) => setEmail(event.target.value)}
               />
             </label>
-            <label>
+            <label className="grid gap-1.5 text-sm font-medium">
               <span>Password</span>
               <Input
                 autoComplete="current-password"
@@ -63,7 +66,11 @@ export function LoginPanel({
                 onChange={(event) => setPassword(event.target.value)}
               />
             </label>
-            {error ? <p className="acp-auth-error">{error}</p> : null}
+            {error ? (
+              <p className="rounded-md border border-destructive/30 bg-destructive/10 px-3 py-2 text-sm text-destructive">
+                {error}
+              </p>
+            ) : null}
             <Button type="submit" disabled={pending || !email || !password}>
               {pending ? "Signing in" : "Sign in"}
             </Button>

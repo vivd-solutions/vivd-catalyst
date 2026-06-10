@@ -7,59 +7,13 @@ import {
   type ModelUsageEvent,
   asConversationId,
   asMessageId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
+import type { auditEvents, conversations, messages, modelUsageEvents } from "./schema";
 
-export interface ConversationRow {
-  id: string;
-  client_instance_id: string;
-  owner_user_id: string;
-  owner_external_user_id: string;
-  title: string;
-  status: Conversation["status"];
-  created_at: Date;
-  updated_at: Date;
-  retained_until: Date;
-  deleted_at: Date | null;
-}
-
-export interface MessageRow {
-  id: string;
-  client_instance_id: string;
-  conversation_id: string;
-  role: ChatMessage["role"];
-  text: string;
-  created_at: Date;
-  metadata: ChatMessage["metadata"];
-}
-
-export interface AuditEventRow {
-  id: string;
-  client_instance_id: string;
-  type: string;
-  status: AuditEvent["status"];
-  actor: AuditEvent["actor"] | null;
-  subject: string | null;
-  reason: string | null;
-  correlation_id: string;
-  created_at: Date;
-  metadata: AuditEvent["metadata"];
-}
-
-export interface ModelUsageEventRow {
-  id: string;
-  client_instance_id: string;
-  conversation_id: string;
-  agent_run_id: string;
-  agent_name: string;
-  provider_id: string;
-  model: string;
-  input_tokens: number;
-  output_tokens: number;
-  total_tokens: number;
-  source: ModelUsageEvent["source"];
-  correlation_id: string;
-  created_at: Date;
-}
+export type ConversationRow = typeof conversations.$inferSelect;
+export type MessageRow = typeof messages.$inferSelect;
+export type AuditEventRow = typeof auditEvents.$inferSelect;
+export type ModelUsageEventRow = typeof modelUsageEvents.$inferSelect;
 
 export function mapConversation(row: ConversationRow | undefined): Conversation {
   if (!row) {
@@ -67,15 +21,15 @@ export function mapConversation(row: ConversationRow | undefined): Conversation 
   }
   return {
     id: asConversationId(row.id),
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    ownerUserId: row.owner_user_id,
-    ownerExternalUserId: row.owner_external_user_id,
+    clientInstanceId: row.clientInstanceId as ClientInstanceId,
+    ownerUserId: row.ownerUserId,
+    ownerExternalUserId: row.ownerExternalUserId,
     title: row.title,
     status: row.status,
-    createdAt: row.created_at.toISOString(),
-    updatedAt: row.updated_at.toISOString(),
-    retainedUntil: row.retained_until.toISOString(),
-    deletedAt: row.deleted_at?.toISOString()
+    createdAt: row.createdAt.toISOString(),
+    updatedAt: row.updatedAt.toISOString(),
+    retainedUntil: row.retainedUntil.toISOString(),
+    deletedAt: row.deletedAt?.toISOString()
   };
 }
 
@@ -85,11 +39,11 @@ export function mapMessage(row: MessageRow | undefined): ChatMessage {
   }
   return {
     id: asMessageId(row.id),
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    conversationId: asConversationId(row.conversation_id),
+    clientInstanceId: row.clientInstanceId as ClientInstanceId,
+    conversationId: asConversationId(row.conversationId),
     role: row.role,
     text: row.text,
-    createdAt: row.created_at.toISOString(),
+    createdAt: row.createdAt.toISOString(),
     metadata: row.metadata
   };
 }
@@ -100,14 +54,14 @@ export function mapAuditEvent(row: AuditEventRow | undefined): AuditEvent {
   }
   return {
     id: row.id as AuditEvent["id"],
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
+    clientInstanceId: row.clientInstanceId as ClientInstanceId,
     type: row.type,
     status: row.status,
     actor: row.actor ?? undefined,
     subject: row.subject ?? undefined,
     reason: row.reason ?? undefined,
-    correlationId: row.correlation_id,
-    createdAt: row.created_at.toISOString(),
+    correlationId: row.correlationId,
+    createdAt: row.createdAt.toISOString(),
     metadata: row.metadata
   };
 }
@@ -118,17 +72,17 @@ export function mapModelUsageEvent(row: ModelUsageEventRow | undefined): ModelUs
   }
   return {
     id: row.id as ModelUsageEvent["id"],
-    clientInstanceId: row.client_instance_id as ClientInstanceId,
-    conversationId: asConversationId(row.conversation_id),
-    agentRunId: row.agent_run_id as ModelUsageEvent["agentRunId"],
-    agentName: row.agent_name,
-    providerId: row.provider_id,
+    clientInstanceId: row.clientInstanceId as ClientInstanceId,
+    conversationId: asConversationId(row.conversationId),
+    agentRunId: row.agentRunId as ModelUsageEvent["agentRunId"],
+    agentName: row.agentName,
+    providerId: row.providerId,
     model: row.model,
-    inputTokens: row.input_tokens,
-    outputTokens: row.output_tokens,
-    totalTokens: row.total_tokens,
+    inputTokens: row.inputTokens,
+    outputTokens: row.outputTokens,
+    totalTokens: row.totalTokens,
     source: row.source,
-    correlationId: row.correlation_id,
-    createdAt: row.created_at.toISOString()
+    correlationId: row.correlationId,
+    createdAt: row.createdAt.toISOString()
   };
 }

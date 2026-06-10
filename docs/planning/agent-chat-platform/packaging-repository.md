@@ -6,7 +6,7 @@ The product should use a code-deployed model with reusable platform packages imp
 
 ```text
 platform packages
-  @product/chat-core
+  @product/core
   @product/api-contract
   @product/api-client
   @product/chat-server
@@ -19,7 +19,6 @@ platform packages
   @product/tool-sdk
   @product/config-schema
   @product/retrieval
-  @product/audit
 
 client assembly app
   imports platform packages
@@ -85,7 +84,7 @@ export default defineTool({
 Recommended client instance shape:
 
 ```text
-client-instance/
+client-assembly/
   package.json
   docker-compose.yml
   Dockerfile
@@ -193,7 +192,7 @@ Suggested initial monorepo shape:
 
 ```text
 packages/
-  chat-core/
+  core/
   api-contract/
   api-client/
   chat-server/
@@ -206,7 +205,6 @@ packages/
   config-schema/
   tool-sdk/
   retrieval/
-  audit/
 clients/
   first-customer/
     agents/

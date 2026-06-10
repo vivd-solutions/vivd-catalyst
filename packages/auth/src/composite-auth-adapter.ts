@@ -1,4 +1,4 @@
-import { AppError, type AuthenticatedUser } from "@agent-chat-platform/chat-core";
+import { AppError, type AuthenticatedUser } from "@agent-chat-platform/core";
 import type { AuthAdapter, AuthRequest } from "./types";
 
 export class CompositeAuthAdapter implements AuthAdapter {

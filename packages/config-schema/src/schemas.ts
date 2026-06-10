@@ -1,4 +1,10 @@
 import { z } from "zod";
+import type {
+  AgentConfig,
+  ModelProviderConfig,
+  UsageLimitsConfig,
+  UsagePricingConfig
+} from "@agent-chat-platform/core";
 
 export const userIdentitySchema = z.object({
   id: z.string().min(1).default("dev-user"),
@@ -213,8 +219,10 @@ export const clientInstanceConfigFileSchema = clientInstanceConfigSchema
 
 export type UserIdentityConfig = z.infer<typeof userIdentitySchema>;
 export type StandaloneSeedUserConfig = z.infer<typeof standaloneSeedUserSchema>;
-export type ModelProviderConfig = z.infer<typeof modelProviderConfigSchema>;
-export type AgentConfig = z.infer<typeof agentConfigSchema>;
-export type UsageLimitsConfig = z.infer<typeof usageLimitsConfigSchema>;
-export type UsagePricingConfig = z.infer<typeof usagePricingConfigSchema>;
+export type {
+  AgentConfig,
+  ModelProviderConfig,
+  UsageLimitsConfig,
+  UsagePricingConfig
+};
 export type ClientInstanceConfig = z.infer<typeof clientInstanceConfigSchema>;

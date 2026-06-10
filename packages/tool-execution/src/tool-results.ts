@@ -2,7 +2,7 @@ import {
   type JsonObject,
   type ToolExecutionErrorCode,
   type ToolHandlerFailureResult
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 
 export function failed(
   code: ToolExecutionErrorCode,

@@ -35,47 +35,50 @@ export function WorkspaceRail({
   onDeleteConversation: (conversationId: string) => void;
 }) {
   return (
-    <aside className="acp-rail" aria-label="Conversations">
-      <div className="acp-instance">
-        <div className="acp-instance-mark">
+    <aside
+      className="grid h-full min-h-0 min-w-0 grid-rows-[auto_auto_minmax(0,1fr)] gap-4 overflow-hidden border-r bg-sidebar p-4 text-sidebar-foreground max-md:grid-cols-[minmax(0,1fr)_5.5rem] max-md:grid-rows-[auto_auto] max-md:border-r-0 max-md:border-b"
+      aria-label="Conversations"
+    >
+      <div className="grid min-w-0 grid-cols-[2.25rem_minmax(0,1fr)_auto_auto] items-center gap-2.5 max-md:col-start-1 max-md:row-start-1">
+        <div className="grid size-9 place-items-center overflow-hidden rounded-lg border bg-card text-primary">
           {config?.ui.logoUrl ? (
-            <img src={config.ui.logoUrl} alt="" />
+            <img className="size-full object-cover" src={config.ui.logoUrl} alt="" />
           ) : (
             <ShieldCheck size={18} aria-hidden="true" />
           )}
         </div>
-        <div className="acp-instance-text">
-          <strong>{config?.ui.clientName ?? config?.ui.title ?? "Agent Chat"}</strong>
-          <span>{user?.displayLabel ?? "Loading"}</span>
+        <div className="grid min-w-0 gap-0.5">
+          <strong className="truncate text-sm">{config?.ui.clientName ?? config?.ui.title ?? "Agent Chat"}</strong>
+          <span className="truncate text-xs text-muted-foreground">{user?.displayLabel ?? "Loading"}</span>
         </div>
         {isSuperadmin ? (
-          <button
+          <Button
             type="button"
-            className={
-              view === "superadmin"
-                ? "acp-admin-shortcut acp-admin-shortcut-active"
-                : "acp-admin-shortcut"
-            }
+            variant="ghost"
+            size="icon"
+            className={view === "superadmin" ? "bg-sidebar-accent text-primary" : "text-muted-foreground"}
             aria-label={view === "superadmin" ? "Return to chat" : "Open superadmin panel"}
             title={view === "superadmin" ? "Return to chat" : "Open superadmin panel"}
             onClick={() => onViewChange(view === "superadmin" ? "chat" : "superadmin")}
           >
             <Settings size={16} aria-hidden="true" />
-          </button>
+          </Button>
         ) : null}
-        <button
+        <Button
           type="button"
-          className="acp-admin-shortcut"
+          variant="ghost"
+          size="icon"
+          className="text-muted-foreground"
           aria-label="Sign out"
           title="Sign out"
           onClick={onSignOut}
         >
           <LogOut size={16} aria-hidden="true" />
-        </button>
+        </Button>
       </div>
 
       <Button
-        className="acp-new-button"
+        className="h-10 w-full justify-center shadow-xs max-md:col-start-2 max-md:row-start-1"
         type="button"
         onClick={onCreateConversation}
         disabled={creatingConversation}
@@ -84,17 +87,23 @@ export function WorkspaceRail({
         <span>New</span>
       </Button>
 
-      <nav className="acp-conversation-list">
-        {conversations.map((conversation) => (
-          <ConversationButton
-            key={conversation.id}
-            conversation={conversation}
-            selected={conversation.id === selectedConversationId}
-            onSelect={() => onSelectConversation(conversation.id)}
-            onDelete={() => onDeleteConversation(conversation.id)}
-            deleting={deletingConversation}
-          />
-        ))}
+      <nav className="grid min-h-0 content-start gap-2 overflow-auto pr-1 max-md:col-span-full max-md:row-start-2 max-md:grid-flow-col max-md:auto-cols-[minmax(12rem,16rem)] max-md:overflow-x-auto max-md:overflow-y-hidden max-md:pr-0">
+        {conversations.length === 0 ? (
+          <div className="rounded-md border border-dashed bg-sidebar-accent/40 px-3 py-4 text-sm text-muted-foreground">
+            No conversations yet.
+          </div>
+        ) : (
+          conversations.map((conversation) => (
+            <ConversationButton
+              key={conversation.id}
+              conversation={conversation}
+              selected={conversation.id === selectedConversationId}
+              onSelect={() => onSelectConversation(conversation.id)}
+              onDelete={() => onDeleteConversation(conversation.id)}
+              deleting={deletingConversation}
+            />
+          ))
+        )}
       </nav>
     </aside>
   );

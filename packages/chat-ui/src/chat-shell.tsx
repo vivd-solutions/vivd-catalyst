@@ -1,11 +1,23 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ApiUser, AuditEvent, UsageSummary } from "@agent-chat-platform/api-client";
 import { ChatWorkspace } from "./chat-workspace";
+
+export interface ChatShellAdminPanel {
+  canView(user: ApiUser | undefined): boolean;
+  renderPanel(input: {
+    usage: UsageSummary | undefined;
+    auditEvents: AuditEvent[];
+    loading: boolean;
+    error?: string;
+  }): ReactNode;
+}
 
 export interface ChatShellProps {
   apiBaseUrl: string;
   token?: string;
   getToken?: () => string | undefined | Promise<string | undefined>;
+  adminPanel?: ChatShellAdminPanel;
   className?: string;
 }
 

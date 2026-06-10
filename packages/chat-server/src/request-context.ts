@@ -7,7 +7,7 @@ import {
   type RuntimeCallContext,
   asConversationId,
   createPlatformId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import type { ChatServerOptions } from "./types";
 
 export async function authenticateRequest(

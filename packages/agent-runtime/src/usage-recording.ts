@@ -1,11 +1,11 @@
 import {
   type AgentRunId,
+  type ModelProviderConfig,
   type ModelUsageEventStore,
   type RuntimeCallContext,
   type StartAgentRunInput
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import type { ModelCompletion } from "@agent-chat-platform/model-provider";
-import type { ModelProviderConfig } from "@agent-chat-platform/config-schema";
 
 export async function recordModelUsage(input: {
   usageStore: ModelUsageEventStore;

@@ -16,8 +16,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@agent-chat-platform/audit": "workspace:*",
-    "@agent-chat-platform/chat-core": "workspace:*",
+    "@agent-chat-platform/core": "workspace:*",
     "@agent-chat-platform/tool-sdk": "workspace:*",
     "zod": "^4.4.3"
   },
@@ -26,4 +25,3 @@
     "typescript": "^6.0.3"
   }
 }
-

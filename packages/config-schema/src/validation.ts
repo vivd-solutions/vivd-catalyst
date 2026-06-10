@@ -1,4 +1,4 @@
-import { AppError } from "@agent-chat-platform/chat-core";
+import { AppError } from "@agent-chat-platform/core";
 import { clientInstanceConfigSchema, type ClientInstanceConfig } from "./schemas";
 
 export function parseClientInstanceConfig(input: unknown): ClientInstanceConfig {
@@ -9,8 +9,27 @@ export function parseClientInstanceConfig(input: unknown): ClientInstanceConfig 
     });
   }
 
+  assertProductionSafeAuthConfig(parsed.data);
   assertConfigReferences(parsed.data);
   return parsed.data;
+}
+
+function assertProductionSafeAuthConfig(config: ClientInstanceConfig): void {
+  if (config.clientInstance.environment !== "production") {
+    return;
+  }
+
+  const seedUserWithDevelopmentPassword = config.auth.standalone?.seedUsers.find(
+    (seedUser) => seedUser.developmentPassword
+  );
+  if (!seedUserWithDevelopmentPassword) {
+    return;
+  }
+
+  throw new AppError(
+    "VALIDATION_FAILED",
+    `Standalone auth seed user '${seedUserWithDevelopmentPassword.email}' uses developmentPassword in production config`
+  );
 }
 
 function assertConfigReferences(config: ClientInstanceConfig): void {

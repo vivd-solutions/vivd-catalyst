@@ -1,3 +1,5 @@
+import { Readable } from "node:stream";
+import type { ReadableStream as NodeReadableStream } from "node:stream/web";
 import type { FastifyInstance, FastifyReply } from "fastify";
 import type { ChatServerOptions } from "../types";
 
@@ -17,12 +19,12 @@ export function registerBetterAuthRoutes(app: FastifyInstance, options: ChatServ
           body: request.method === "GET" ? undefined : toRequestBody(request.body)
         })
       );
-      await sendWebResponse(reply, response);
+      return sendWebResponse(reply, response);
     }
   });
 }
 
-export async function sendWebResponse(reply: FastifyReply, response: Response): Promise<void> {
+export function sendWebResponse(reply: FastifyReply, response: Response): FastifyReply {
   reply.status(response.status);
   response.headers.forEach((value, key) => {
     if (key.toLowerCase() !== "set-cookie") {
@@ -35,8 +37,11 @@ export async function sendWebResponse(reply: FastifyReply, response: Response): 
     reply.header("set-cookie", setCookies);
   }
 
-  const body = Buffer.from(await response.arrayBuffer());
-  reply.send(body);
+  if (!response.body) {
+    return reply.send();
+  }
+
+  return reply.send(Readable.fromWeb(response.body as NodeReadableStream<Uint8Array>));
 }
 
 function toAuthRequestUrl(requestUrl: string, options: ChatServerOptions): string {

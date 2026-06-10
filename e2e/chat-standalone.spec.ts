@@ -14,6 +14,8 @@ test("standalone login renders the authenticated chat workspace", async ({ page 
   await page.goto("/");
 
   await expect(page.getByRole("main", { name: "Sign in" })).toBeVisible();
+  await expect(page.getByLabel("Email")).toHaveValue("");
+  await expect(page.getByLabel("Password")).toHaveValue("");
   await page.getByLabel("Email").fill(normalUser.email);
   await page.getByLabel("Password").fill(normalUser.password);
   await page.getByRole("button", { name: "Sign in", exact: true }).click();
@@ -86,6 +88,8 @@ test("new conversation action opens an unsaved draft screen", async ({ page }) =
   const newConversationButton = page.getByRole("button", { name: "New", exact: true });
   await expect(newConversationButton).toBeVisible();
   await expect(page.getByText("New conversation")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add attachment" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Find review risks" })).toBeVisible();
 
   const input = page.getByPlaceholder("Message");
   await input.fill("Draft on the new screen");
@@ -107,14 +111,16 @@ test("composer drafts are scoped to the new screen and selected conversations", 
   const input = page.getByPlaceholder("Message");
   await input.fill("New screen draft");
 
-  await page.getByRole("button", { name: title, exact: true }).click();
+  const targetConversation = page.getByTestId("conversation-row").filter({ hasText: title });
+  await expect(targetConversation).toHaveCount(1);
+  await targetConversation.getByRole("button").first().click();
   await expect(input).toHaveValue("");
   await input.fill("Selected conversation draft");
 
   await page.getByRole("button", { name: "New", exact: true }).click();
   await expect(input).toHaveValue("New screen draft");
 
-  await page.getByRole("button", { name: title, exact: true }).click();
+  await targetConversation.getByRole("button").first().click();
   await expect(input).toHaveValue("Selected conversation draft");
 });
 
@@ -134,7 +140,7 @@ test("conversation rail deletes a conversation", async ({ page }) => {
   expect(created.ok()).toBe(true);
 
   await page.goto("/");
-  const conversations = page.locator(".acp-conversation");
+  const conversations = page.getByTestId("conversation-row");
   const targetConversation = conversations.filter({ hasText: title });
   await expect(targetConversation).toHaveCount(1);
 
@@ -217,6 +223,10 @@ test("standalone chat can run a configured tool", async ({ page }) => {
     );
   await page.getByRole("button", { name: "Send message" }).click();
 
+  const toolCallCard = page.getByTestId("tool-call-card").last();
+  await expect(toolCallCard).toBeVisible();
+  await expect(toolCallCard).toContainText("document.application_summary");
+  await expect(toolCallCard).toContainText("Completed");
   await expect(page.getByText("Tool work completed").last()).toBeVisible();
   await expect(page.getByText(applicantName).last()).toBeVisible();
   await expect(page.getByText("No review flags were raised.").last()).toBeVisible();
@@ -229,9 +239,7 @@ test("standalone chat can run a configured tool", async ({ page }) => {
   await expect(page.getByText("Configured pricing")).toBeVisible();
   await expect(page.getByText("local / deterministic-local")).toBeVisible();
   await expect(page.getByText("Configured limits")).toBeVisible();
-  const configuredLimits = page.locator(".acp-admin-section").filter({
-    has: page.getByRole("heading", { name: "Configured limits" })
-  });
+  const configuredLimits = page.getByTestId("configured-limits");
   await expect(configuredLimits).toContainText("12");
   await expect(configuredLimits).toContainText("25,000");
   await expect(page.getByText("Recent model usage")).toBeVisible();

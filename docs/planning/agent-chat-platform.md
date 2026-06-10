@@ -20,6 +20,7 @@ The first use case is a sensitive document and payslip workflow embedded into a 
 - [Reference Patterns](./agent-chat-platform/reference-patterns.md)
 - [Implementation Guide](./agent-chat-platform/implementation-guide.md)
 - [V1 Scope](./agent-chat-platform/v1-scope.md)
+- [V1 Realignment Plan](./agent-chat-platform/v1-realignment-plan.md)
 - [Open Questions](./agent-chat-platform/open-questions.md)
 
 Related research:
@@ -60,6 +61,7 @@ Related research:
 - TanStack Query handles frontend server state outside streaming chat.
 - TanStack Router handles standalone/admin routing; the embedded widget stays router-light.
 - Postgres is the baseline application store.
+- Drizzle is the default typed query layer inside concrete SQL storage adapters, while product-owned store interfaces remain the public storage boundary.
 - Client branding and theme live in release config so each client instance can present customer-specific name, logo, and colors without forking UI code.
 - Docker images package runtime services.
 - Docker Compose is used for local development and is acceptable as the first production target on a VPS/VM.
@@ -82,3 +84,4 @@ Related research:
 - [0008 Use A Separate Node API Service For The Chat Backend](../adr/0008-use-a-separate-node-api-service-for-the-chat-backend.md)
 - [0010 Use Docker Compose On A VPS As The First Production Target](../adr/0010-use-docker-compose-on-a-vps-as-the-first-production-target.md)
 - [0011 Use Auth Adapters And User-Scoped Persisted Conversations](../adr/0011-use-auth-adapters-and-user-scoped-persisted-conversations.md)
+- [0012 Realign V1 API, Runtime, And Package Boundaries](../adr/0012-realign-v1-api-runtime-and-package-boundaries.md)

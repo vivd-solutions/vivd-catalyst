@@ -13,6 +13,8 @@ This note tracks the implementation issues closed during the v1 alignment pass a
 - The app shell is fixed-height. The sidebar, chat thread, and superadmin panel own their own overflow instead of scrolling the whole document.
 - TanStack Router is implemented in the standalone shell. TanStack Query remains the documented server-state default outside the live chat stream.
 - Local dev now has a production-shaped standalone path backed by Postgres auth/session/conversation state.
+- Postgres-backed persistence now uses Drizzle inside storage/auth adapters. Drizzle types stay private; platform callers still use product-owned store/auth interfaces.
+- The dev-user listing route has been removed. Local standalone testing uses seeded Better Auth users instead of a browser-visible dev-user switch/listing API.
 - The architecture review skill was rerun after implementation. The report is an external HTML artifact in the OS temp directory.
 
 ## Remaining Follow-Up Candidates

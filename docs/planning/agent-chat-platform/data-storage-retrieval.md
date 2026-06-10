@@ -17,6 +17,8 @@ Postgres stores normal product data:
 - usage summaries for governance and configured limits
 - retrieval reference metadata
 
+Concrete SQL store packages should use Drizzle internally for typed schema and query construction. Drizzle table definitions and inferred row types are implementation details of adapters such as `postgres-store`; platform package boundaries should continue to expose product-owned store interfaces and domain types.
+
 The vector storage decision remains separate. Postgres may also provide vector search through pgvector, but the retrieval adapter should avoid coupling the platform to pgvector only.
 
 ## Conversations And Retention

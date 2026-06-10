@@ -7,8 +7,8 @@ import {
   type ToolExecutionContext,
   type ToolExecutionRequest,
   type ToolExecutionResult
-} from "@agent-chat-platform/chat-core";
-import { auditActorFromUser, type AuditRecorder } from "@agent-chat-platform/audit";
+} from "@agent-chat-platform/core";
+import { auditActorFromUser, type AuditRecorder } from "@agent-chat-platform/core";
 import type { ToolRegistry } from "./tool-registry";
 import { failed, toPreview } from "./tool-results";
 

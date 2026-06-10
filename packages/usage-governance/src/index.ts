@@ -5,9 +5,10 @@ import {
   type ModelUsageEventInput,
   type ModelUsageEventStore,
   type ModelUsageWindowSummary,
+  type UsageLimitsConfig,
+  type UsagePricingConfig,
   createModelUsageWindowBounds
-} from "@agent-chat-platform/chat-core";
-import type { UsageLimitsConfig, UsagePricingConfig } from "@agent-chat-platform/config-schema";
+} from "@agent-chat-platform/core";
 
 export interface ModelUsageGovernanceOptions {
   store: ModelUsageEventStore;
@@ -51,6 +52,7 @@ export class ModelUsageGovernance implements ModelUsageEventStore {
   private readonly limits: UsageLimitsConfig;
   private readonly pricing: UsagePricingConfig;
   private readonly clientLocks = new Map<string, Promise<void>>();
+  private readonly inFlightModelCalls = new Map<string, number>();
 
   constructor(options: ModelUsageGovernanceOptions) {
     this.store = options.store;
@@ -65,10 +67,12 @@ export class ModelUsageGovernance implements ModelUsageEventStore {
     clientInstanceId: ClientInstanceId,
     execute: () => Promise<T>
   ): Promise<T> {
-    return this.withClientLock(clientInstanceId, async () => {
-      await this.assertAllowed(clientInstanceId);
+    const reservation = await this.reserveModelCall(clientInstanceId);
+    try {
       return execute();
-    });
+    } finally {
+      await this.settleModelCall(reservation);
+    }
   }
 
   appendModelUsageEvent(input: ModelUsageEventInput): Promise<ModelUsageEvent> {
@@ -129,7 +133,7 @@ export class ModelUsageGovernance implements ModelUsageEventStore {
       clientInstanceId,
       start: todayStart
     });
-    assertDailyLimits(today, this.limits);
+    assertDailyLimits(today, this.limits, this.countInFlightModelCalls(clientInstanceId));
 
     if (this.limits.tokensPerMonth) {
       const currentMonth = await this.store.summarizeModelUsageEvents({
@@ -140,6 +144,34 @@ export class ModelUsageGovernance implements ModelUsageEventStore {
         throw new AppError("FORBIDDEN", "Monthly model token usage limit has been reached");
       }
     }
+  }
+
+  private async reserveModelCall(clientInstanceId: ClientInstanceId): Promise<{
+    clientInstanceId: ClientInstanceId;
+  }> {
+    return this.withClientLock(clientInstanceId, async () => {
+      await this.assertAllowed(clientInstanceId);
+      this.inFlightModelCalls.set(
+        clientInstanceId,
+        this.countInFlightModelCalls(clientInstanceId) + 1
+      );
+      return { clientInstanceId };
+    });
+  }
+
+  private async settleModelCall(reservation: { clientInstanceId: ClientInstanceId }): Promise<void> {
+    await this.withClientLock(reservation.clientInstanceId, async () => {
+      const nextCount = Math.max(0, this.countInFlightModelCalls(reservation.clientInstanceId) - 1);
+      if (nextCount === 0) {
+        this.inFlightModelCalls.delete(reservation.clientInstanceId);
+        return;
+      }
+      this.inFlightModelCalls.set(reservation.clientInstanceId, nextCount);
+    });
+  }
+
+  private countInFlightModelCalls(clientInstanceId: ClientInstanceId): number {
+    return this.inFlightModelCalls.get(clientInstanceId) ?? 0;
   }
 
   private async withClientLock<T>(
@@ -167,8 +199,15 @@ export class ModelUsageGovernance implements ModelUsageEventStore {
   }
 }
 
-function assertDailyLimits(summary: ModelUsageWindowSummary, limits: UsageLimitsConfig): void {
-  if (limits.modelCallsPerDay && summary.modelCallCount >= limits.modelCallsPerDay) {
+function assertDailyLimits(
+  summary: ModelUsageWindowSummary,
+  limits: UsageLimitsConfig,
+  inFlightModelCallCount: number
+): void {
+  if (
+    limits.modelCallsPerDay &&
+    summary.modelCallCount + inFlightModelCallCount >= limits.modelCallsPerDay
+  ) {
     throw new AppError("FORBIDDEN", "Daily model call usage limit has been reached");
   }
 

@@ -7,7 +7,7 @@ import {
   type ToolAuthorizationDecision,
   type ToolExecution,
   asToolCallId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import type { ModelToolCall } from "@agent-chat-platform/model-provider";
 import type { RunState } from "./run-state";
 

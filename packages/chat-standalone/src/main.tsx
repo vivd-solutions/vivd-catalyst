@@ -1,7 +1,8 @@
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { Outlet, RouterProvider, createRootRoute, createRoute, createRouter } from "@tanstack/react-router";
-import { ChatShell } from "@agent-chat-platform/chat-ui";
+import { superadminPanel } from "@agent-chat-platform/chat-ui/admin";
+import { ChatShell } from "@agent-chat-platform/chat-ui/shell";
 import "@agent-chat-platform/chat-ui/styles.css";
 
 const apiBaseUrl = import.meta.env.VITE_CHAT_API_URL ?? "http://127.0.0.1:4100";
@@ -38,5 +39,5 @@ function StandaloneRoot() {
 }
 
 function StandaloneChatRoute() {
-  return <ChatShell apiBaseUrl={apiBaseUrl} />;
+  return <ChatShell apiBaseUrl={apiBaseUrl} adminPanel={superadminPanel} />;
 }

@@ -4,7 +4,7 @@ import type {
   ToolHandlerResult,
   ToolPermissionPolicy,
   ToolRuntimeContext
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 
 export interface ToolDefinition<TInput = unknown, TOutput = unknown> {
   name: string;

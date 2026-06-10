@@ -1,3 +1,5 @@
+import { and, asc, desc, eq, gte, lt, sql as drizzleSql } from "drizzle-orm";
+import { drizzle, type PostgresJsDatabase } from "drizzle-orm/postgres-js";
 import postgres from "postgres";
 import type { Notice, Sql } from "postgres";
 import {
@@ -17,18 +19,10 @@ import {
   type ModelUsageEventStore,
   type ModelUsageWindowSummary,
   createPlatformId
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 import { runPostgresMigrations } from "./migrations";
-import {
-  type AuditEventRow,
-  type ConversationRow,
-  type MessageRow,
-  type ModelUsageEventRow,
-  mapAuditEvent,
-  mapConversation,
-  mapMessage,
-  mapModelUsageEvent
-} from "./rows";
+import { mapAuditEvent, mapConversation, mapMessage, mapModelUsageEvent } from "./rows";
+import { auditEvents, conversations, messages, modelUsageEvents, schema } from "./schema";
 
 export interface PostgresPlatformStoreOptions {
   databaseUrl: string;
@@ -36,6 +30,7 @@ export interface PostgresPlatformStoreOptions {
 }
 
 const DUPLICATE_RELATION_NOTICE_CODE = "42P07";
+type PostgresDatabase = PostgresJsDatabase<typeof schema>;
 
 function handlePostgresNotice(notice: Notice): void {
   if (
@@ -50,9 +45,11 @@ function handlePostgresNotice(notice: Notice): void {
 
 export class PostgresPlatformStore implements ConversationStore, AuditEventStore, ModelUsageEventStore {
   private readonly sql: Sql;
+  private readonly db: PostgresDatabase;
 
-  constructor(sql: Sql) {
+  private constructor(sql: Sql) {
     this.sql = sql;
+    this.db = drizzle(sql, { schema });
   }
 
   static async connect(options: PostgresPlatformStoreOptions): Promise<PostgresPlatformStore> {
@@ -78,32 +75,21 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
 
   async createConversation(input: CreateConversationInput): Promise<Conversation> {
     const id = createPlatformId<"ConversationId">("conv");
-    const now = new Date().toISOString();
-    const [row] = await this.sql<ConversationRow[]>`
-      insert into conversations (
+    const now = new Date();
+    const [row] = await this.db
+      .insert(conversations)
+      .values({
         id,
-        client_instance_id,
-        owner_user_id,
-        owner_external_user_id,
-        title,
-        status,
-        created_at,
-        updated_at,
-        retained_until
-      )
-      values (
-        ${id},
-        ${input.clientInstanceId},
-        ${input.ownerUserId},
-        ${input.ownerExternalUserId},
-        ${input.title},
-        'active',
-        ${now},
-        ${now},
-        ${input.retainedUntil}
-      )
-      returning *
-    `;
+        clientInstanceId: input.clientInstanceId,
+        ownerUserId: input.ownerUserId,
+        ownerExternalUserId: input.ownerExternalUserId,
+        title: input.title,
+        status: "active",
+        createdAt: now,
+        updatedAt: now,
+        retainedUntil: new Date(input.retainedUntil)
+      })
+      .returning();
     return mapConversation(row);
   }
 
@@ -111,12 +97,11 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     clientInstanceId: ClientInstanceId,
     conversationId: ConversationId
   ): Promise<Conversation | undefined> {
-    const [row] = await this.sql<ConversationRow[]>`
-      select * from conversations
-      where client_instance_id = ${clientInstanceId}
-        and id = ${conversationId}
-      limit 1
-    `;
+    const [row] = await this.db
+      .select()
+      .from(conversations)
+      .where(and(eq(conversations.clientInstanceId, clientInstanceId), eq(conversations.id, conversationId)))
+      .limit(1);
     return row ? mapConversation(row) : undefined;
   }
 
@@ -124,13 +109,17 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     clientInstanceId: ClientInstanceId;
     ownerExternalUserId: string;
   }): Promise<Conversation[]> {
-    const rows = await this.sql<ConversationRow[]>`
-      select * from conversations
-      where client_instance_id = ${input.clientInstanceId}
-        and owner_external_user_id = ${input.ownerExternalUserId}
-        and status = 'active'
-      order by updated_at desc
-    `;
+    const rows = await this.db
+      .select()
+      .from(conversations)
+      .where(
+        and(
+          eq(conversations.clientInstanceId, input.clientInstanceId),
+          eq(conversations.ownerExternalUserId, input.ownerExternalUserId),
+          eq(conversations.status, "active")
+        )
+      )
+      .orderBy(desc(conversations.updatedAt));
     return rows.map(mapConversation);
   }
 
@@ -141,34 +130,28 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     }
 
     const id = createPlatformId<"MessageId">("msg");
-    const createdAt = new Date().toISOString();
-    const [row] = await this.sql<MessageRow[]>`
-      insert into messages (
+    const createdAt = new Date();
+    const [row] = await this.db
+      .insert(messages)
+      .values({
         id,
-        client_instance_id,
-        conversation_id,
-        role,
-        text,
-        created_at,
-        metadata
-      )
-      values (
-        ${id},
-        ${input.clientInstanceId},
-        ${input.conversationId},
-        ${input.role},
-        ${input.text},
-        ${createdAt},
-        ${this.sql.json(input.metadata ?? {})}
-      )
-      returning *
-    `;
-    await this.sql`
-      update conversations
-      set updated_at = ${createdAt}
-      where client_instance_id = ${input.clientInstanceId}
-        and id = ${input.conversationId}
-    `;
+        clientInstanceId: input.clientInstanceId,
+        conversationId: input.conversationId,
+        role: input.role,
+        text: input.text,
+        createdAt,
+        metadata: input.metadata ?? {}
+      })
+      .returning();
+    await this.db
+      .update(conversations)
+      .set({ updatedAt: createdAt })
+      .where(
+        and(
+          eq(conversations.clientInstanceId, input.clientInstanceId),
+          eq(conversations.id, input.conversationId)
+        )
+      );
     return mapMessage(row);
   }
 
@@ -181,13 +164,41 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
       throw new AppError("NOT_FOUND", "Conversation is not available");
     }
 
-    const rows = await this.sql<MessageRow[]>`
-      select * from messages
-      where client_instance_id = ${input.clientInstanceId}
-        and conversation_id = ${input.conversationId}
-      order by created_at asc
-    `;
+    const rows = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.clientInstanceId, input.clientInstanceId),
+          eq(messages.conversationId, input.conversationId)
+        )
+      )
+      .orderBy(asc(messages.createdAt));
     return rows.map(mapMessage);
+  }
+
+  async listRecentMessages(input: {
+    clientInstanceId: ClientInstanceId;
+    conversationId: ConversationId;
+    limit: number;
+  }): Promise<ChatMessage[]> {
+    const conversation = await this.getConversation(input.clientInstanceId, input.conversationId);
+    if (!conversation || conversation.status !== "active") {
+      throw new AppError("NOT_FOUND", "Conversation is not available");
+    }
+
+    const rows = await this.db
+      .select()
+      .from(messages)
+      .where(
+        and(
+          eq(messages.clientInstanceId, input.clientInstanceId),
+          eq(messages.conversationId, input.conversationId)
+        )
+      )
+      .orderBy(desc(messages.createdAt))
+      .limit(input.limit);
+    return rows.map(mapMessage).reverse();
   }
 
   async deleteConversation(input: {
@@ -195,20 +206,29 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     conversationId: ConversationId;
     deletedAt: string;
   }): Promise<Conversation> {
-    await this.sql`
-      delete from messages
-      where client_instance_id = ${input.clientInstanceId}
-        and conversation_id = ${input.conversationId}
-    `;
-    const [row] = await this.sql<ConversationRow[]>`
-      update conversations
-      set status = 'deleted',
-          deleted_at = ${input.deletedAt},
-          updated_at = ${input.deletedAt}
-      where client_instance_id = ${input.clientInstanceId}
-        and id = ${input.conversationId}
-      returning *
-    `;
+    await this.db
+      .delete(messages)
+      .where(
+        and(
+          eq(messages.clientInstanceId, input.clientInstanceId),
+          eq(messages.conversationId, input.conversationId)
+        )
+      );
+    const deletedAt = new Date(input.deletedAt);
+    const [row] = await this.db
+      .update(conversations)
+      .set({
+        status: "deleted",
+        deletedAt,
+        updatedAt: deletedAt
+      })
+      .where(
+        and(
+          eq(conversations.clientInstanceId, input.clientInstanceId),
+          eq(conversations.id, input.conversationId)
+        )
+      )
+      .returning();
     if (!row) {
       throw new AppError("NOT_FOUND", "Conversation is not available");
     }
@@ -217,34 +237,21 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
 
   async appendAuditEvent(input: AuditEventInput): Promise<AuditEvent> {
     const id = createPlatformId<"AuditEventId">("audit");
-    const createdAt = new Date().toISOString();
-    const [row] = await this.sql<AuditEventRow[]>`
-      insert into audit_events (
+    const [row] = await this.db
+      .insert(auditEvents)
+      .values({
         id,
-        client_instance_id,
-        type,
-        status,
-        actor,
-        subject,
-        reason,
-        correlation_id,
-        created_at,
-        metadata
-      )
-      values (
-        ${id},
-        ${input.clientInstanceId},
-        ${input.type},
-        ${input.status},
-        ${input.actor ? this.sql.json(JSON.parse(JSON.stringify(input.actor))) : null},
-        ${input.subject ?? null},
-        ${input.reason ?? null},
-        ${input.correlationId},
-        ${createdAt},
-        ${this.sql.json(input.metadata ?? {})}
-      )
-      returning *
-    `;
+        clientInstanceId: input.clientInstanceId,
+        type: input.type,
+        status: input.status,
+        actor: input.actor ?? null,
+        subject: input.subject ?? null,
+        reason: input.reason ?? null,
+        correlationId: input.correlationId,
+        createdAt: new Date(),
+        metadata: input.metadata ?? {}
+      })
+      .returning();
     return mapAuditEvent(row);
   }
 
@@ -254,59 +261,38 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     type?: string;
   }): Promise<AuditEvent[]> {
     const limit = input.limit ?? 100;
-    const rows = input.type
-      ? await this.sql<AuditEventRow[]>`
-          select * from audit_events
-          where client_instance_id = ${input.clientInstanceId}
-            and type = ${input.type}
-          order by created_at desc
-          limit ${limit}
-        `
-      : await this.sql<AuditEventRow[]>`
-          select * from audit_events
-          where client_instance_id = ${input.clientInstanceId}
-          order by created_at desc
-          limit ${limit}
-        `;
+    const filters = input.type
+      ? and(eq(auditEvents.clientInstanceId, input.clientInstanceId), eq(auditEvents.type, input.type))
+      : eq(auditEvents.clientInstanceId, input.clientInstanceId);
+    const rows = await this.db
+      .select()
+      .from(auditEvents)
+      .where(filters)
+      .orderBy(desc(auditEvents.createdAt))
+      .limit(limit);
     return rows.map(mapAuditEvent);
   }
 
   async appendModelUsageEvent(input: ModelUsageEventInput): Promise<ModelUsageEvent> {
     const id = createPlatformId<"ModelUsageEventId">("usage");
-    const createdAt = new Date().toISOString();
-    const [row] = await this.sql<ModelUsageEventRow[]>`
-      insert into model_usage_events (
+    const [row] = await this.db
+      .insert(modelUsageEvents)
+      .values({
         id,
-        client_instance_id,
-        conversation_id,
-        agent_run_id,
-        agent_name,
-        provider_id,
-        model,
-        input_tokens,
-        output_tokens,
-        total_tokens,
-        source,
-        correlation_id,
-        created_at
-      )
-      values (
-        ${id},
-        ${input.clientInstanceId},
-        ${input.conversationId},
-        ${input.agentRunId},
-        ${input.agentName},
-        ${input.providerId},
-        ${input.model},
-        ${input.inputTokens},
-        ${input.outputTokens},
-        ${input.totalTokens},
-        ${input.source},
-        ${input.correlationId},
-        ${createdAt}
-      )
-      returning *
-    `;
+        clientInstanceId: input.clientInstanceId,
+        conversationId: input.conversationId,
+        agentRunId: input.agentRunId,
+        agentName: input.agentName,
+        providerId: input.providerId,
+        model: input.model,
+        inputTokens: input.inputTokens,
+        outputTokens: input.outputTokens,
+        totalTokens: input.totalTokens,
+        source: input.source,
+        correlationId: input.correlationId,
+        createdAt: new Date()
+      })
+      .returning();
     return mapModelUsageEvent(row);
   }
 
@@ -315,32 +301,23 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     start?: string;
     end?: string;
   }): Promise<ModelUsageWindowSummary> {
-    const [row] = await this.sql<
-      Array<{
-        model_call_count: number;
-        input_tokens: number;
-        output_tokens: number;
-        total_tokens: number;
-      }>
-    >`
-      select
-        count(*)::int as model_call_count,
-        coalesce(sum(input_tokens), 0)::int as input_tokens,
-        coalesce(sum(output_tokens), 0)::int as output_tokens,
-        coalesce(sum(total_tokens), 0)::int as total_tokens
-      from model_usage_events
-      where client_instance_id = ${input.clientInstanceId}
-        and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
-        and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
-    `;
+    const [row] = await this.db
+      .select({
+        modelCallCount: drizzleSql<number>`count(*)::int`,
+        inputTokens: drizzleSql<number>`coalesce(sum(${modelUsageEvents.inputTokens}), 0)::int`,
+        outputTokens: drizzleSql<number>`coalesce(sum(${modelUsageEvents.outputTokens}), 0)::int`,
+        totalTokens: drizzleSql<number>`coalesce(sum(${modelUsageEvents.totalTokens}), 0)::int`
+      })
+      .from(modelUsageEvents)
+      .where(and(...modelUsageFilters(input)));
 
     return {
       start: input.start,
       end: input.end,
-      modelCallCount: row?.model_call_count ?? 0,
-      inputTokens: row?.input_tokens ?? 0,
-      outputTokens: row?.output_tokens ?? 0,
-      totalTokens: row?.total_tokens ?? 0
+      modelCallCount: row?.modelCallCount ?? 0,
+      inputTokens: row?.inputTokens ?? 0,
+      outputTokens: row?.outputTokens ?? 0,
+      totalTokens: row?.totalTokens ?? 0
     };
   }
 
@@ -350,23 +327,24 @@ export class PostgresPlatformStore implements ConversationStore, AuditEventStore
     end?: string;
     limit?: number;
   }): Promise<ModelUsageEvent[]> {
-    const rows =
-      input.limit === undefined
-        ? await this.sql<ModelUsageEventRow[]>`
-            select * from model_usage_events
-            where client_instance_id = ${input.clientInstanceId}
-              and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
-              and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
-            order by created_at desc
-          `
-        : await this.sql<ModelUsageEventRow[]>`
-            select * from model_usage_events
-            where client_instance_id = ${input.clientInstanceId}
-              and (${input.start ?? null}::timestamptz is null or created_at >= ${input.start ?? null})
-              and (${input.end ?? null}::timestamptz is null or created_at < ${input.end ?? null})
-            order by created_at desc
-            limit ${input.limit}
-          `;
+    const query = this.db
+      .select()
+      .from(modelUsageEvents)
+      .where(and(...modelUsageFilters(input)))
+      .orderBy(desc(modelUsageEvents.createdAt));
+    const rows = input.limit === undefined ? await query : await query.limit(input.limit);
     return rows.map(mapModelUsageEvent);
   }
+}
+
+function modelUsageFilters(input: {
+  clientInstanceId: ClientInstanceId;
+  start?: string;
+  end?: string;
+}) {
+  return [
+    eq(modelUsageEvents.clientInstanceId, input.clientInstanceId),
+    ...(input.start ? [gte(modelUsageEvents.createdAt, new Date(input.start))] : []),
+    ...(input.end ? [lt(modelUsageEvents.createdAt, new Date(input.end))] : [])
+  ];
 }

@@ -3,7 +3,7 @@ import {
   type AgentRunId,
   type AgentRunStatus,
   type AgentRuntimeEvent
-} from "@agent-chat-platform/chat-core";
+} from "@agent-chat-platform/core";
 
 type AgentRuntimeEventDraft = AgentRuntimeEvent extends infer TEvent
   ? TEvent extends AgentRuntimeEvent

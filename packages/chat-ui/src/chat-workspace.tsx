@@ -4,13 +4,12 @@ import { ApiError, createApiClient, type Conversation, type Message } from "@age
 import { AssistantChatPanel } from "./assistant-chat-panel";
 import { signOut } from "./auth-client";
 import type { ChatShellProps } from "./chat-shell";
-import { canViewSuperadminPanel } from "./governance";
 import { LoginPanel } from "./login-panel";
-import { SuperadminPanel } from "./superadmin-panel";
 import { createThemeStyle } from "./theme";
+import { cn } from "./ui/cn";
 import { type WorkspaceView, WorkspaceRail } from "./workspace-rail";
 
-export function ChatWorkspace({ apiBaseUrl, token, getToken, className }: ChatShellProps) {
+export function ChatWorkspace({ apiBaseUrl, token, getToken, adminPanel, className }: ChatShellProps) {
   const queryClient = useQueryClient();
   const [selectedConversationId, setSelectedConversationId] = useState<string | undefined>();
   const [draftsByTarget, setDraftsByTarget] = useState<Record<string, string>>({});
@@ -50,7 +49,7 @@ export function ChatWorkspace({ apiBaseUrl, token, getToken, className }: ChatSh
     queryFn: () => client.messages(selectedConversationId ?? ""),
     enabled: isAuthenticated && Boolean(selectedConversationId)
   });
-  const isSuperadmin = canViewSuperadminPanel(meQuery.data);
+  const isSuperadmin = adminPanel?.canView(meQuery.data) ?? false;
   const usageQuery = useQuery({
     queryKey: ["usage", apiBaseUrl, authScope],
     queryFn: client.usageSummary,
@@ -155,7 +154,13 @@ export function ChatWorkspace({ apiBaseUrl, token, getToken, className }: ChatSh
   }
 
   return (
-    <main className={["acp-shell", className].filter(Boolean).join(" ")} style={themeStyle}>
+    <main
+      className={cn(
+        "grid h-dvh w-full min-h-0 overflow-hidden bg-background text-foreground md:grid-cols-[minmax(230px,286px)_minmax(0,1fr)] md:grid-rows-[minmax(0,1fr)] max-md:grid-cols-1 max-md:grid-rows-[auto_minmax(0,1fr)]",
+        className
+      )}
+      style={themeStyle}
+    >
       <WorkspaceRail
         config={config}
         user={meQuery.data}
@@ -173,18 +178,17 @@ export function ChatWorkspace({ apiBaseUrl, token, getToken, className }: ChatSh
       />
 
       {view === "superadmin" && isSuperadmin ? (
-        <SuperadminPanel
-          usage={usageQuery.data}
-          auditEvents={auditQuery.data ?? []}
-          loading={usageQuery.isLoading || auditQuery.isLoading}
-          error={
+        adminPanel?.renderPanel({
+          usage: usageQuery.data,
+          auditEvents: auditQuery.data ?? [],
+          loading: usageQuery.isLoading || auditQuery.isLoading,
+          error:
             usageQuery.error instanceof ApiError
               ? usageQuery.error.message
               : auditQuery.error instanceof ApiError
                 ? auditQuery.error.message
                 : undefined
-          }
-        />
+        })
       ) : (
         <AssistantChatPanel
           apiBaseUrl={apiBaseUrl}
