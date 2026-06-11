@@ -8,7 +8,7 @@ COPY packages ./packages
 COPY clients/immobilienaufbau ./clients/immobilienaufbau
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm -r --filter './packages/*' build && pnpm --filter @vivd-stage/immobilienaufbau build
+RUN pnpm -r --filter './packages/*' build && pnpm --filter @vivd-catalyst/immobilienaufbau build
 
 FROM node:23-alpine AS runtime
 
