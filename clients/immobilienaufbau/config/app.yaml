@@ -1,7 +1,7 @@
 version: 1
 clientInstance:
-  id: demo-local
-  displayName: Vivd Stage Demo
+  id: immobilienaufbau-local
+  displayName: Immobilienaufbau
   environment: development
 auth:
   standalone:
@@ -13,28 +13,28 @@ auth:
       - http://127.0.0.1:5273
       - http://localhost:5273
     seedUsers:
-      - displayLabel: Demo Superadmin
+      - displayLabel: Immobilienaufbau Superadmin
         email: superadmin@example.test
-        emailEnvName: DEMO_SUPERADMIN_EMAIL
-        passwordEnvName: DEMO_SUPERADMIN_PASSWORD
-        developmentPassword: demo-superadmin-password
+        emailEnvName: IMMOBILIENAUFBAU_SUPERADMIN_EMAIL
+        passwordEnvName: IMMOBILIENAUFBAU_SUPERADMIN_PASSWORD
+        developmentPassword: immobilienaufbau-superadmin-password
         roles:
           - user
           - admin
           - superadmin
         permissionRefs:
-          - demo-tools
-      - displayLabel: Demo User
+          - application-review
+      - displayLabel: Immobilienaufbau User
         email: user@example.test
-        emailEnvName: DEMO_USER_EMAIL
-        passwordEnvName: DEMO_USER_PASSWORD
-        developmentPassword: demo-user-password
+        emailEnvName: IMMOBILIENAUFBAU_USER_EMAIL
+        passwordEnvName: IMMOBILIENAUFBAU_USER_PASSWORD
+        developmentPassword: immobilienaufbau-user-password
         roles:
           - user
         permissionRefs:
-          - demo-tools
+          - application-review
   sessionToken:
-    issuer: demo-client-instance
+    issuer: immobilienaufbau-client-instance
     ttlSeconds: 900
 retention:
   conversationDays: 30
@@ -47,7 +47,7 @@ modelProviders:
     baseUrl: https://api.openai.com/v1
     apiKeyEnvName: OPENAI_API_KEY
 localization:
-  defaultLocale: en
+  defaultLocale: de
   supportedLocales:
     - de
     - en
@@ -74,10 +74,10 @@ usage:
         model: gpt-5-nano
         inputPricePerMillionTokens: 0.05
         outputPricePerMillionTokens: 0.4
-defaultAgentName: workflow_assistant
+defaultAgentName: application_assistant
 agentFiles:
-  - ../agents/workflow-assistant.agent.yaml
+  - ../agents/application-assistant.agent.yaml
 tools:
-  - name: demo.workflow_summary
+  - name: document.application_summary
     enabled: true
 uiFile: ./ui.yaml

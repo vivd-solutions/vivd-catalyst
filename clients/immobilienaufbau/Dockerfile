@@ -5,10 +5,10 @@ RUN corepack enable
 
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json tsconfig.json ./
 COPY packages ./packages
-COPY clients/demo ./clients/demo
+COPY clients/immobilienaufbau ./clients/immobilienaufbau
 
 RUN pnpm install --frozen-lockfile
-RUN pnpm -r --filter './packages/*' build && pnpm --filter @vivd-stage/demo build
+RUN pnpm -r --filter './packages/*' build && pnpm --filter @vivd-stage/immobilienaufbau build
 
 FROM node:23-alpine AS runtime
 
@@ -19,7 +19,7 @@ RUN corepack enable
 COPY --from=build /app/package.json /app/pnpm-workspace.yaml ./
 COPY --from=build /app/node_modules ./node_modules
 COPY --from=build /app/packages ./packages
-COPY --from=build /app/clients/demo ./clients/demo
+COPY --from=build /app/clients/immobilienaufbau ./clients/immobilienaufbau
 
 EXPOSE 4100
-CMD ["node", "clients/demo/dist/server.js"]
+CMD ["node", "clients/immobilienaufbau/dist/server.js"]
