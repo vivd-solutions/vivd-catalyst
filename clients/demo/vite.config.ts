@@ -7,6 +7,9 @@ export default defineConfig({
   resolve: {
     dedupe: ["react", "react-dom"]
   },
+  build: {
+    outDir: "dist/client"
+  },
   server: {
     host: "127.0.0.1",
     port: 5173
