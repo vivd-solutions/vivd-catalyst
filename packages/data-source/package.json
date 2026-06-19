@@ -1,5 +1,5 @@
 {
-  "name": "@vivd-catalyst/client-assembly",
+  "name": "@vivd-catalyst/data-source",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,19 +17,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vivd-catalyst/agent-runtime": "workspace:*",
-    "@vivd-catalyst/auth": "workspace:*",
-    "@vivd-catalyst/chat-server": "workspace:*",
-    "@vivd-catalyst/config-schema": "workspace:*",
     "@vivd-catalyst/core": "workspace:*",
-    "@vivd-catalyst/data-source": "workspace:*",
-    "@vivd-catalyst/model-provider": "workspace:*",
-    "@vivd-catalyst/postgres-store": "workspace:*",
-    "@vivd-catalyst/tool-execution": "workspace:*",
     "@vivd-catalyst/tool-sdk": "workspace:*",
-    "@vivd-catalyst/usage-governance": "workspace:*",
-    "dotenv": "^17.4.2",
-    "fastify": "^5.8.5"
+    "postgres": "^3.4.9"
   },
   "devDependencies": {
     "@types/node": "^24.13.1",
