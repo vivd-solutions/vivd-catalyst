@@ -1,5 +1,5 @@
 {
-  "name": "@vivd-catalyst/chat-server",
+  "name": "@vivd-catalyst/mail",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -17,18 +17,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@fastify/cors": "^11.2.0",
-    "@fastify/multipart": "^9.3.0",
-    "@vivd-catalyst/api-contract": "workspace:*",
-    "@vivd-catalyst/auth": "workspace:*",
-    "@vivd-catalyst/config-schema": "workspace:*",
-    "@vivd-catalyst/core": "workspace:*",
-    "@vivd-catalyst/mail": "workspace:*",
-    "@vivd-catalyst/model-provider": "workspace:*",
-    "@vivd-catalyst/usage-governance": "workspace:*",
-    "ai": "^6.0.199",
-    "fastify": "^5.8.5",
-    "zod": "^4.4.3"
+    "@vivd-catalyst/core": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^24.13.1",
