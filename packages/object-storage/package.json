@@ -1,11 +1,11 @@
 {
-  "name": "@vivd-catalyst/client-assembly",
+  "name": "@vivd-catalyst/object-storage",
   "version": "0.6.3",
   "license": "UNLICENSED",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/vivd-solutions/vivd-catalyst.git",
-    "directory": "packages/client-assembly"
+    "directory": "packages/object-storage"
   },
   "type": "module",
   "sideEffects": false,
@@ -39,23 +39,9 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
-    "@vivd-catalyst/agent-runtime": "workspace:*",
-    "@vivd-catalyst/auth": "workspace:*",
-    "@vivd-catalyst/capability-sdk": "workspace:*",
-    "@vivd-catalyst/chat-server": "workspace:*",
-    "@vivd-catalyst/config-schema": "workspace:*",
+    "@aws-sdk/client-s3": "3.1072.0",
+    "@aws-sdk/s3-request-presigner": "3.1072.0",
     "@vivd-catalyst/core": "workspace:*",
-    "@vivd-catalyst/data-source": "workspace:*",
-    "@vivd-catalyst/mail": "workspace:*",
-    "@vivd-catalyst/model-provider": "workspace:*",
-    "@vivd-catalyst/object-storage": "workspace:*",
-    "@vivd-catalyst/postgres-store": "workspace:*",
-    "@vivd-catalyst/tool-execution": "workspace:*",
-    "@vivd-catalyst/tool-sdk": "workspace:*",
-    "@vivd-catalyst/usage-governance": "workspace:*",
-    "@vivd-catalyst/web-access": "workspace:*",
-    "dotenv": "^17.4.2",
-    "pino": "10.3.1",
     "zod": "^4.4.3"
   },
   "devDependencies": {
